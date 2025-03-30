@@ -91,6 +91,7 @@ structure, and vice-versa.
 lazy_html = LazyHTML.from_fragment("<p><strong>Hello</strong>, <em>world</em>!</p>")
 #=> #LazyHTML<
 #=>   1 node
+#=>
 #=>   #1
 #=>   <p><strong>Hello</strong>, <em>world</em>!</p>
 #=> >
@@ -101,6 +102,7 @@ tree = LazyHTML.to_tree(lazy_html)
 LazyHTML.from_tree(tree)
 #=> #LazyHTML<
 #=>   1 node
+
 #=>   #1
 #=>   <p><strong>Hello</strong>, <em>world</em>!</p>
 #=> >
