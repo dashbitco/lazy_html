@@ -192,8 +192,9 @@ ERL_NIF_TERM attributes_to_term(ErlNifEnv *env, lxb_dom_element_t *element,
   return fine::encode(env, attributes);
 }
 
-void node_to_tree(ErlNifEnv *env, lxb_dom_node_t *node,
-                  std::vector<ERL_NIF_TERM> &tree, bool sort_attributes) {
+void node_to_tree(ErlNifEnv *env, fine::ResourcePtr<LazyHTML> &resource,
+                  lxb_dom_node_t *node, std::vector<ERL_NIF_TERM> &tree,
+                  bool sort_attributes) {
   if (node->type == LXB_DOM_NODE_TYPE_ELEMENT) {
     auto element = lxb_dom_interface_element(node);
 
@@ -206,7 +207,7 @@ void node_to_tree(ErlNifEnv *env, lxb_dom_node_t *node,
     auto children = std::vector<ERL_NIF_TERM>();
     for (auto child = lxb_dom_node_first_child(node); child != NULL;
          child = lxb_dom_node_next(child)) {
-      node_to_tree(env, child, children, sort_attributes);
+      node_to_tree(env, resource, child, children, sort_attributes);
     }
 
     auto children_term = enif_make_list_from_array(
@@ -215,19 +216,21 @@ void node_to_tree(ErlNifEnv *env, lxb_dom_node_t *node,
     tree.push_back(enif_make_tuple3(env, name_term, attrs_term, children_term));
   } else if (node->type == LXB_DOM_NODE_TYPE_TEXT) {
     auto character_data = lxb_dom_interface_character_data(node);
-    auto term = make_new_binary(env, character_data->data.length,
-                                character_data->data.data);
+    auto term = fine::make_resource_binary(
+        env, resource, reinterpret_cast<char *>(character_data->data.data),
+        character_data->data.length);
     tree.push_back(term);
   } else if (node->type == LXB_DOM_NODE_TYPE_DOCUMENT ||
              node->type == LXB_DOM_NODE_TYPE_DOCUMENT_FRAGMENT) {
     for (auto child = lxb_dom_node_first_child(node); child != NULL;
          child = lxb_dom_node_next(child)) {
-      node_to_tree(env, child, tree, sort_attributes);
+      node_to_tree(env, resource, child, tree, sort_attributes);
     }
   } else if (node->type == LXB_DOM_NODE_TYPE_COMMENT) {
     auto character_data = lxb_dom_interface_character_data(node);
-    auto term = make_new_binary(env, character_data->data.length,
-                                character_data->data.data);
+    auto term = fine::make_resource_binary(
+        env, resource, reinterpret_cast<char *>(character_data->data.data),
+        character_data->data.length);
     tree.push_back(
         enif_make_tuple2(env, fine::encode(env, atoms::comment), term));
   }
@@ -238,7 +241,7 @@ fine::Term to_tree(ErlNifEnv *env, ExLazyHTML ex_lazy_html,
   auto tree = std::vector<ERL_NIF_TERM>();
 
   for (auto node : ex_lazy_html.resource->nodes) {
-    node_to_tree(env, node, tree, sort_attributes);
+    node_to_tree(env, ex_lazy_html.resource, node, tree, sort_attributes);
   }
 
   return enif_make_list_from_array(env, tree.data(),
@@ -340,7 +343,7 @@ lxb_css_selector_list_t *parse_css_selector(lxb_css_parser_t *parser,
   if (parser->status == LXB_STATUS_ERROR_UNEXPECTED_DATA) {
     throw std::invalid_argument(
         "got invalid css selector: " +
-        std::string(reinterpret_cast<const char *>(css_selector.data),
+        std::string(reinterpret_cast<char *>(css_selector.data),
                     css_selector.size));
   }
   if (parser->status != LXB_STATUS_OK) {
