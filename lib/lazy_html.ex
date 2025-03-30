@@ -176,7 +176,13 @@ defmodule LazyHTML do
 
   ## Examples
 
-      iex> lazy_html = LazyHTML.from_fragment(~S|<div class="layout"><span>Hello</span> <span>world</span></div>|)
+      iex> lazy_html =
+      ...>   LazyHTML.from_fragment("""
+      ...>   <div class="layout">
+      ...>     <span>Hello</span>
+      ...>     <span>world</span>
+      ...>   </div>
+      ...>   """)
       iex> LazyHTML.query(lazy_html, "span")
       #LazyHTML<
         2 nodes (from selector)
@@ -189,7 +195,10 @@ defmodule LazyHTML do
       #LazyHTML<
         1 node (from selector)
         #1
-        <div class="layout"><span>Hello</span> <span>world</span></div>
+        <div class="layout">
+          <span>Hello</span>
+          <span>world</span>
+        </div>
       >
 
   Note that for each root node, the selector respects its actual
@@ -231,7 +240,7 @@ defmodule LazyHTML do
     LazyHTML.NIF.query(lazy_html, selector)
   end
 
-  @doc """
+  @doc ~S'''
   Finds elements in `lazy_html` matching the given id.
 
   This function is similar to `query/2`, but it accepts unescaped id
@@ -243,7 +252,13 @@ defmodule LazyHTML do
 
   ## Examples
 
-      iex> lazy_html = LazyHTML.from_fragment(~S|<div><span id="hello">Hello</span> <span>world</span></div>|)
+      iex> lazy_html =
+      ...>   LazyHTML.from_fragment("""
+      ...>   <div>
+      ...>     <span id="hello">Hello</span>
+      ...>     <span>world</span>
+      ...>   </div>
+      ...>   """)
       iex> LazyHTML.query_by_id(lazy_html, "hello")
       #LazyHTML<
         1 node (from selector)
@@ -251,7 +266,7 @@ defmodule LazyHTML do
         <span id="hello">Hello</span>
       >
 
-  """
+  '''
   @spec query_by_id(t(), String.t()) :: list(t())
   def query_by_id(%LazyHTML{} = lazy_html, id) when is_binary(id) do
     if id == "" do
@@ -350,13 +365,20 @@ defmodule LazyHTML do
     LazyHTML.NIF.text(lazy_html)
   end
 
-  @doc """
+  @doc ~S'''
   Returns all values of the given attribute on the `lazy_html` root
   nodes.
 
   ## Examples
 
-      iex> lazy_html = LazyHTML.from_fragment(~S|<div><span data-id="1">Hello</span> <span data-id="2">world</span> <span>!</span></div>|)
+      iex> lazy_html =
+      ...>   LazyHTML.from_fragment("""
+      ...>   <div>
+      ...>     <span data-id="1">Hello</span>
+      ...>     <span data-id="2">world</span>
+      ...>     <span>!</span>
+      ...>   </div>
+      ...>   """)
       iex> spans = LazyHTML.query(lazy_html, "span")
       iex> LazyHTML.attribute(spans, "data-id")
       ["1", "2"]
@@ -370,13 +392,13 @@ defmodule LazyHTML do
       iex> LazyHTML.attribute(button, "disabled")
       [""]
 
-  """
+  '''
   @spec attribute(t(), String.t()) :: list(String.t())
   def attribute(%LazyHTML{} = lazy_html, name) when is_binary(name) do
     LazyHTML.NIF.attribute(lazy_html, name)
   end
 
-  @doc """
+  @doc ~S'''
   Returns attribute lists for every root element in `lazy_html`.
 
   Note that if there are text or comment root nodes, they are ignored,
@@ -384,7 +406,13 @@ defmodule LazyHTML do
 
   ## Examples
 
-      iex> lazy_html = LazyHTML.from_fragment(~S|<div><span class="text" data-id="1">Hello</span> <span>world</span></div>|)
+      iex> lazy_html =
+      ...>   LazyHTML.from_fragment("""
+      ...>   <div>
+      ...>     <span class="text" data-id="1">Hello</span>
+      ...>     <span>world</span>
+      ...>   </div>
+      ...>   """)
       iex> spans = LazyHTML.query(lazy_html, "span")
       iex> LazyHTML.attributes(spans)
       [
@@ -392,13 +420,18 @@ defmodule LazyHTML do
         []
       ]
 
-      iex> lazy_html = LazyHTML.from_fragment(~S|<span class="text">Hello</span> world <!-- Comment-->|)
+      iex> lazy_html =
+      ...>   LazyHTML.from_fragment("""
+      ...>   <!-- Comment-->
+      ...>   <span class="text">Hello</span>
+      ...>   world
+      ...>   """)
       iex> LazyHTML.attributes(lazy_html)
       [
         [{"class", "text"}]
       ]
 
-  """
+  '''
   @spec attributes(t()) :: list({String.t(), String.t()})
   def attributes(%LazyHTML{} = lazy_html) do
     LazyHTML.NIF.attributes(lazy_html)
