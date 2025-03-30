@@ -503,6 +503,22 @@ ExLazyHTML query_by_id(ErlNifEnv *env, ExLazyHTML ex_lazy_html,
 
 FINE_NIF(query_by_id, 0);
 
+ExLazyHTML child_nodes(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
+  auto nodes = std::vector<lxb_dom_node_t *>();
+
+  for (auto node : ex_lazy_html.resource->nodes) {
+    for (auto child = lxb_dom_node_first_child(node); child != NULL;
+         child = lxb_dom_node_next(child)) {
+      nodes.push_back(child);
+    }
+  }
+
+  return ExLazyHTML(fine::make_resource<LazyHTML>(
+      ex_lazy_html.resource->document_ref, nodes, true));
+}
+
+FINE_NIF(child_nodes, 0);
+
 std::string text(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
   auto document = ex_lazy_html.resource->document_ref->document;
 

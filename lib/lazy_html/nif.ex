@@ -20,6 +20,7 @@ defmodule LazyHTML.NIF do
   def query(_lazy_html, _css_selector), do: err!()
   def filter(_lazy_html, _css_selector), do: err!()
   def query_by_id(_lazy_html, _id), do: err!()
+  def child_nodes(_lazy_html), do: err!()
   def text(_lazy_html), do: err!()
   def attribute(_lazy_html, _name), do: err!()
   def attributes(_lazy_html), do: err!()

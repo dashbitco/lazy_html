@@ -257,6 +257,37 @@ defmodule LazyHTML do
   end
 
   @doc """
+  Returns the child_nodes nodes of the root nodes in `lazy_html`.
+
+  ## Examples
+
+      iex> lazy_html = LazyHTML.from_fragment(~S|<div><span>Hello</span> <span>world</span></div>|)
+      iex> LazyHTML.child_nodes(lazy_html)
+      #LazyHTML<
+        3 nodes (from selector)
+        #1
+        <span>Hello</span>
+        #2
+        [whitespace]
+        #3
+        <span>world</span>
+      >
+      iex> LazyHTML.child_nodes(LazyHTML.child_nodes(lazy_html))
+      #LazyHTML<
+        2 nodes (from selector)
+        #1
+        Hello
+        #2
+        world
+      >
+
+  """
+  @spec child_nodes(t()) :: t()
+  def child_nodes(%LazyHTML{} = lazy_html) do
+    LazyHTML.NIF.child_nodes(lazy_html)
+  end
+
+  @doc """
   Returns the text content of all nodes in `lazy_html`.
 
   ## Examples
