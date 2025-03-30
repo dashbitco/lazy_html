@@ -3,9 +3,9 @@ defmodule LazyHTML.MixProject do
 
   @lexbor_version "2.4.0"
 
-  @version "0.1.0"
+  @version "0.1.0-dev"
   @description "Efficient parsing and querying of HTML documents"
-  @github_url "https://github.com/phoenixframework/lazy_html"
+  @github_url "https://github.com/dashbitco/lazy_html"
 
   def project do
     [

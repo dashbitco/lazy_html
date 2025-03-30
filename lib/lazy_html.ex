@@ -10,6 +10,8 @@ defmodule LazyHTML do
 
   defstruct [:resource]
 
+  @behaviour Access
+
   @type t :: %__MODULE__{resource: reference()}
 
   @type html_tree :: list(html_node())
@@ -320,6 +322,9 @@ defmodule LazyHTML do
   @doc """
   Returns attribute lists for every root element in `lazy_html`.
 
+  Note that if there are text or comment root nodes, they are ignored,
+  and they have no corresponding list in the result.
+
   ## Examples
 
       iex> lazy_html = LazyHTML.from_fragment(~S|<div><span class="text" data-id="1">Hello</span> <span>world</span></div>|)
@@ -328,6 +333,12 @@ defmodule LazyHTML do
       [
         [{"class", "text"}, {"data-id", "1"}],
         []
+      ]
+
+      iex> lazy_html = LazyHTML.from_fragment(~S|<span class="text">Hello</span> world <!-- Comment-->|)
+      iex> LazyHTML.attributes(lazy_html)
+      [
+        [{"class", "text"}]
       ]
 
   """
@@ -481,9 +492,19 @@ defmodule LazyHTML do
 
   # Access
 
-  @doc false
+  @impl true
   def fetch(%LazyHTML{} = lazy_html, selector) when is_binary(selector) do
     {:ok, query(lazy_html, selector)}
+  end
+
+  @impl true
+  def get_and_update(%LazyHTML{}, _index, _update) do
+    raise "Access.get_and_update/3 is not supported by LazyHTML"
+  end
+
+  @impl true
+  def pop(%LazyHTML{}, _index) do
+    raise "Access.pop/2 is not supported by LazyHTML"
   end
 end
 
@@ -575,8 +596,12 @@ defimpl Inspect, for: LazyHTML do
 end
 
 defimpl Enumerable, for: LazyHTML do
-  def count(_lazy_html), do: {:error, __MODULE__}
+  def count(lazy_html) do
+    {:ok, LazyHTML.NIF.num_nodes(lazy_html)}
+  end
+
   def member?(_lazy_html, _element), do: {:error, __MODULE__}
+
   def slice(_lazy_html), do: {:error, __MODULE__}
 
   def reduce(%LazyHTML{} = lazy_html, acc, fun) do

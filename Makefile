@@ -5,7 +5,7 @@ C_SRC := $(shell pwd)/c_src
 CPPFLAGS := -shared -fPIC -fvisibility=hidden -std=c++17 -Wall -Wextra -Wno-unused-parameter -Wno-comment
 CPPFLAGS += -I$(ERTS_INCLUDE_DIR) -I$(FINE_INCLUDE_DIR)
 
-LEXBOR_DIR := $(shell pwd)/_build/c/third_party/lexbor
+LEXBOR_DIR := $(shell pwd)/_build/c/third_party/lexbor/$(LEXBOR_VERSION)
 ifdef CC_PRECOMPILER_CURRENT_TARGET
 	LEXBOR_BUILD_DIR := $(LEXBOR_DIR)/build-$(CC_PRECOMPILER_CURRENT_TARGET)
 else

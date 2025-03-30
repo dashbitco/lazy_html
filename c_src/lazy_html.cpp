@@ -582,6 +582,12 @@ std::tuple<std::vector<ExLazyHTML>, bool> nodes(ErlNifEnv *env,
 
 FINE_NIF(nodes, 0);
 
+std::uint64_t num_nodes(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
+  return ex_lazy_html.resource->nodes.size();
+}
+
+FINE_NIF(num_nodes, 0);
+
 } // namespace lazy_html
 
 FINE_INIT("Elixir.LazyHTML.NIF");

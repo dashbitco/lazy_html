@@ -1,7 +1,7 @@
 # LazyHTML
 
 [![Docs](https://img.shields.io/badge/hex.pm-docs-8e7ce6.svg)](https://hexdocs.pm/lazy_html)
-[![Actions Status](https://github.com/phoenixframework/lazy_html/workflows/Test/badge.svg)](https://github.com/phoenixframework/lazy_html/actions)
+[![Actions Status](https://github.com/dashbitco/lazy_html/workflows/Test/badge.svg)](https://github.com/dashbitco/lazy_html/actions)
 
 <!-- Docs -->
 
