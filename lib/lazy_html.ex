@@ -167,7 +167,7 @@ defmodule LazyHTML do
     LazyHTML.NIF.from_tree(tree)
   end
 
-  @doc """
+  @doc ~S'''
   Finds elements in `lazy_html` matching the given CSS selector.
 
   Since `lazy_html` may have multiple root nodes, the root nodes are
@@ -192,7 +192,40 @@ defmodule LazyHTML do
         <div class="layout"><span>Hello</span> <span>world</span></div>
       >
 
-  """
+  Note that for each root node, the selector respects its actual
+  location in the document. Consequently, if you run one `query/2`
+  the returned nodes are not necessarily siblings, which may impact
+  a subsequent query:
+
+      iex> lazy_html =
+      ...>   LazyHTML.from_fragment("""
+      ...>   <div>
+      ...>     <span>Hello</span>
+      ...>   </div>
+      ...>   <div>
+      ...>     <span>World</span>
+      ...>   </div>
+      ...>   """)
+      iex> spans = LazyHTML.query(lazy_html, "span")
+      #LazyHTML<
+        2 nodes (from selector)
+        #1
+        <span>Hello</span>
+        #2
+        <span>World</span>
+      >
+      iex> LazyHTML.query(spans, ":first-child")
+      #LazyHTML<
+        2 nodes (from selector)
+        #1
+        <span>Hello</span>
+        #2
+        <span>World</span>
+      >
+
+  In the example above, each of the spans is first child of its
+  respective parent, so the second query matches both.
+  '''
   @spec query(t(), String.t()) :: list(t())
   def query(%LazyHTML{} = lazy_html, selector) when is_binary(selector) do
     LazyHTML.NIF.query(lazy_html, selector)
