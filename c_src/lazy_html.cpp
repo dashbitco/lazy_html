@@ -140,11 +140,11 @@ ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html) {
 FINE_NIF(from_fragment, ERL_NIF_DIRTY_JOB_CPU_BOUND);
 
 void append_escaping(std::string &html, const unsigned char *data,
-                     size_t length) {
+                     size_t length, size_t unescaped_prefix_size = 0) {
   size_t offset = 0;
-  size_t size = 0;
+  size_t size = unescaped_prefix_size;
 
-  for (size_t i = 0; i < length; ++i) {
+  for (size_t i = unescaped_prefix_size; i < length; ++i) {
     auto ch = data[i];
     if (ch == '<') {
       if (size > 0) {
@@ -208,17 +208,41 @@ bool is_noescape_text_node(lxb_dom_node_t *node) {
   return false;
 }
 
-void append_node_html(lxb_dom_node_t *node, std::string &html) {
+size_t leading_whitespace_size(const unsigned char *data, size_t length) {
+  auto size = 0;
+
+  for (size_t i = 0; i < length; i++) {
+    auto ch = data[i];
+
+    if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+      size++;
+    } else {
+      return size;
+    }
+  }
+
+  return size;
+}
+
+void append_node_html(lxb_dom_node_t *node, bool skip_whitespace_nodes,
+                      std::string &html) {
   if (node->type == LXB_DOM_NODE_TYPE_TEXT) {
     auto character_data = lxb_dom_interface_character_data(node);
 
-    if (is_noescape_text_node(node)) {
-      html.append(reinterpret_cast<char *>(character_data->data.data),
-                  character_data->data.length);
-    } else {
+    auto whitespace_size = leading_whitespace_size(character_data->data.data,
+                                                   character_data->data.length);
 
-      append_escaping(html, character_data->data.data,
-                      character_data->data.length);
+    if (whitespace_size == character_data->data.length &&
+        skip_whitespace_nodes) {
+      // Append nothing
+    } else {
+      if (is_noescape_text_node(node)) {
+        html.append(reinterpret_cast<char *>(character_data->data.data),
+                    character_data->data.length);
+      } else {
+        append_escaping(html, character_data->data.data,
+                        character_data->data.length, whitespace_size);
+      }
     }
   } else if (node->type == LXB_DOM_NODE_TYPE_COMMENT) {
     auto character_data = lxb_dom_interface_character_data(node);
@@ -260,7 +284,7 @@ void append_node_html(lxb_dom_node_t *node, std::string &html) {
       html.append(">");
       for (auto child = lxb_dom_node_first_child(node); child != NULL;
            child = lxb_dom_node_next(child)) {
-        append_node_html(child, html);
+        append_node_html(child, skip_whitespace_nodes, html);
       }
       html.append("</");
       html.append(reinterpret_cast<const char *>(name), name_length);
@@ -269,11 +293,12 @@ void append_node_html(lxb_dom_node_t *node, std::string &html) {
   }
 }
 
-std::string to_html(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
+std::string to_html(ErlNifEnv *env, ExLazyHTML ex_lazy_html,
+                    bool skip_whitespace_nodes) {
   auto string = std::string();
 
   for (auto node : ex_lazy_html.resource->nodes) {
-    append_node_html(node, string);
+    append_node_html(node, skip_whitespace_nodes, string);
   }
 
   return string;

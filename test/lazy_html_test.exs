@@ -137,9 +137,22 @@ defmodule LazyHTMLTest do
       </body></html>\
       """
 
-      tree = LazyHTML.from_document(html)
+      lazy_html = LazyHTML.from_document(html)
 
-      assert LazyHTML.to_html(tree) == html
+      assert LazyHTML.to_html(lazy_html) == html
+    end
+
+    test "with :skip_whitespace_nodes" do
+      lazy_html =
+        LazyHTML.from_fragment("""
+        <p>
+          <span> Hello </span>
+          <span> world </span>
+        </p>
+        """)
+
+      assert LazyHTML.to_html(lazy_html, skip_whitespace_nodes: true) ==
+               "<p><span> Hello </span><span> world </span></p>"
     end
   end
 

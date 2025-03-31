@@ -76,8 +76,14 @@ defmodule LazyHTML do
     LazyHTML.NIF.from_fragment(html)
   end
 
-  @doc """
+  @doc ~S'''
   Serializes `lazy_html` as an HTML string.
+
+  ## Options
+
+    * `:skip_whitespace_nodes` - when `true`, ignores text nodes that
+      consist entirely of whitespace, usually whitespace between tags.
+      Defaults to `false`.
 
   ## Examples
 
@@ -89,10 +95,22 @@ defmodule LazyHTML do
       iex> LazyHTML.to_html(lazy_html)
       "<span>Hello</span> <span>world</span>"
 
-  """
-  @spec to_html(t()) :: String.t()
-  def to_html(%LazyHTML{} = lazy_html) do
-    LazyHTML.NIF.to_html(lazy_html)
+      iex> lazy_html =
+      ...>   LazyHTML.from_fragment("""
+      ...>   <p>
+      ...>     <span> Hello </span>
+      ...>     <span> world </span>
+      ...>   </p>
+      ...>   """)
+      iex> LazyHTML.to_html(lazy_html, skip_whitespace_nodes: true)
+      "<p><span> Hello </span><span> world </span></p>"
+
+  '''
+  @spec to_html(t(), keyword()) :: String.t()
+  def to_html(%LazyHTML{} = lazy_html, opts \\ []) when is_list(opts) do
+    opts = Keyword.validate!(opts, skip_whitespace_nodes: false)
+
+    LazyHTML.NIF.to_html(lazy_html, opts[:skip_whitespace_nodes])
   end
 
   @doc """
