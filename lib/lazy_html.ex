@@ -253,7 +253,7 @@ defmodule LazyHTML do
   In the example above, each of the spans is first child of its
   respective parent, so the second query matches both.
   '''
-  @spec query(t(), String.t()) :: list(t())
+  @spec query(t(), String.t()) :: t()
   def query(%LazyHTML{} = lazy_html, selector) when is_binary(selector) do
     LazyHTML.NIF.query(lazy_html, selector)
   end
@@ -285,7 +285,7 @@ defmodule LazyHTML do
       >
 
   '''
-  @spec query_by_id(t(), String.t()) :: list(t())
+  @spec query_by_id(t(), String.t()) :: t()
   def query_by_id(%LazyHTML{} = lazy_html, id) when is_binary(id) do
     if id == "" do
       raise ArgumentError, "id cannot be empty"
@@ -317,7 +317,7 @@ defmodule LazyHTML do
       >
 
   '''
-  @spec filter(t(), String.t()) :: list(t())
+  @spec filter(t(), String.t()) :: t()
   def filter(%LazyHTML{} = lazy_html, selector) when is_binary(selector) do
     LazyHTML.NIF.filter(lazy_html, selector)
   end
@@ -453,6 +453,21 @@ defmodule LazyHTML do
   @spec attributes(t()) :: list({String.t(), String.t()})
   def attributes(%LazyHTML{} = lazy_html) do
     LazyHTML.NIF.attributes(lazy_html)
+  end
+
+  @doc """
+  Returns the tag name of the root element in `lazy_html`.
+
+  ## Examples
+
+      iex> lazy_html = LazyHTML.from_fragment(~S|<div><span>Hello</span> <span>world</span></div>|)
+      iex> LazyHTML.tag(lazy_html)
+      "div"
+
+  """
+  @spec tag(t()) :: String.t()
+  def tag(%LazyHTML{} = lazy_html) do
+    LazyHTML.NIF.tag(lazy_html)
   end
 
   # Access
