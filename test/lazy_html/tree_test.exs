@@ -55,7 +55,8 @@ defmodule LazyHTML.TreeTest do
         |> LazyHTML.from_fragment()
         |> LazyHTML.to_tree()
 
-      assert LazyHTML.Tree.to_html(tree, skip_whitespace_nodes: true) == "<p><span> Hello </span><span> world </span></p>"
+      assert LazyHTML.Tree.to_html(tree, skip_whitespace_nodes: true) ==
+               "<p><span> Hello </span><span> world </span></p>"
     end
   end
 end
