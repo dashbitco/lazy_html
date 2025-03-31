@@ -139,24 +139,144 @@ ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html) {
 
 FINE_NIF(from_fragment, ERL_NIF_DIRTY_JOB_CPU_BOUND);
 
-fine::Term to_html(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
-  auto document = ex_lazy_html.resource->document_ref->document;
+void append_escaping(std::string &html, const unsigned char *data,
+                     size_t length) {
+  size_t offset = 0;
+  size_t size = 0;
 
-  auto string = lexbor_str_create();
-  auto string_guard = ScopeGuard([&]() {
-    lexbor_str_destroy(string, lxb_dom_interface_document(document)->text,
-                       true);
-  });
-
-  for (auto node : ex_lazy_html.resource->nodes) {
-    auto status = lxb_html_serialize_tree_str(node, string);
-
-    if (status != LXB_STATUS_OK) {
-      throw std::runtime_error("failed to serialize node");
+  for (size_t i = 0; i < length; ++i) {
+    auto ch = data[i];
+    if (ch == '<') {
+      if (size > 0) {
+        html.append(reinterpret_cast<const char *>(data + offset), size);
+      }
+      offset = i + 1;
+      size = 0;
+      html.append("&lt;");
+    } else if (ch == '>') {
+      if (size > 0) {
+        html.append(reinterpret_cast<const char *>(data + offset), size);
+      }
+      offset = i + 1;
+      size = 0;
+      html.append("&gt;");
+    } else if (ch == '&') {
+      if (size > 0) {
+        html.append(reinterpret_cast<const char *>(data + offset), size);
+      }
+      offset = i + 1;
+      size = 0;
+      html.append("&amp;");
+    } else if (ch == '"') {
+      if (size > 0) {
+        html.append(reinterpret_cast<const char *>(data + offset), size);
+      }
+      offset = i + 1;
+      size = 0;
+      html.append("&quot;");
+    } else if (ch == '\'') {
+      if (size > 0) {
+        html.append(reinterpret_cast<const char *>(data + offset), size);
+      }
+      offset = i + 1;
+      size = 0;
+      html.append("&#39;");
+    } else {
+      size++;
     }
   }
 
-  return make_new_binary(env, string->length, string->data);
+  if (size > 0) {
+    html.append(reinterpret_cast<const char *>(data + offset), size);
+  }
+}
+
+bool is_noescape_text_node(lxb_dom_node_t *node) {
+  if (node->parent != NULL) {
+    switch (node->parent->local_name) {
+    case LXB_TAG_STYLE:
+    case LXB_TAG_SCRIPT:
+    case LXB_TAG_XMP:
+    case LXB_TAG_IFRAME:
+    case LXB_TAG_NOEMBED:
+    case LXB_TAG_NOFRAMES:
+    case LXB_TAG_PLAINTEXT:
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void append_node_html(lxb_dom_node_t *node, std::string &html) {
+  if (node->type == LXB_DOM_NODE_TYPE_TEXT) {
+    auto character_data = lxb_dom_interface_character_data(node);
+
+    if (is_noescape_text_node(node)) {
+      html.append(reinterpret_cast<char *>(character_data->data.data),
+                  character_data->data.length);
+    } else {
+
+      append_escaping(html, character_data->data.data,
+                      character_data->data.length);
+    }
+  } else if (node->type == LXB_DOM_NODE_TYPE_COMMENT) {
+    auto character_data = lxb_dom_interface_character_data(node);
+    html.append("<!--");
+    html.append(reinterpret_cast<char *>(character_data->data.data),
+                character_data->data.length);
+    html.append("-->");
+  } else if (node->type == LXB_DOM_NODE_TYPE_ELEMENT) {
+    auto element = lxb_dom_interface_element(node);
+    size_t name_length;
+    auto name = lxb_dom_element_qualified_name(element, &name_length);
+    if (name == NULL) {
+      throw std::runtime_error("failed to read tag name");
+    }
+    html.append("<");
+    html.append(reinterpret_cast<const char *>(name), name_length);
+
+    for (auto attribute = lxb_dom_element_first_attribute(element);
+         attribute != NULL;
+         attribute = lxb_dom_element_next_attribute(attribute)) {
+      html.append(" ");
+
+      size_t name_length;
+      auto name = lxb_dom_attr_qualified_name(attribute, &name_length);
+      html.append(reinterpret_cast<const char *>(name), name_length);
+
+      html.append("=\"");
+
+      size_t value_length;
+      auto value = lxb_dom_attr_value(attribute, &value_length);
+      append_escaping(html, value, value_length);
+
+      html.append("\"");
+    }
+
+    if (lxb_html_node_is_void(node)) {
+      html.append("/>");
+    } else {
+      html.append(">");
+      for (auto child = lxb_dom_node_first_child(node); child != NULL;
+           child = lxb_dom_node_next(child)) {
+        append_node_html(child, html);
+      }
+      html.append("</");
+      html.append(reinterpret_cast<const char *>(name), name_length);
+      html.append(">");
+    }
+  }
+}
+
+std::string to_html(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
+  auto string = std::string();
+
+  for (auto node : ex_lazy_html.resource->nodes) {
+    append_node_html(node, string);
+  }
+
+  return string;
 }
 
 FINE_NIF(to_html, 0);
@@ -200,6 +320,9 @@ void node_to_tree(ErlNifEnv *env, fine::ResourcePtr<LazyHTML> &resource,
 
     size_t name_length;
     auto name = lxb_dom_element_qualified_name(element, &name_length);
+    if (name == NULL) {
+      throw std::runtime_error("failed to read tag name");
+    }
     auto name_term = make_new_binary(env, name_length, name);
 
     auto attrs_term = attributes_to_term(env, element, sort_attributes);
