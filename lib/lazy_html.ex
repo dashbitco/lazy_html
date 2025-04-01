@@ -456,16 +456,23 @@ defmodule LazyHTML do
   end
 
   @doc """
-  Returns the tag name of the root element in `lazy_html`.
+  Returns tag name for every root element in `lazy_html`.
+
+  Note that if there are text or comment root nodes, they are ignored,
+  and they have no corresponding list in the result.
 
   ## Examples
 
       iex> lazy_html = LazyHTML.from_fragment(~S|<div><span>Hello</span> <span>world</span></div>|)
       iex> LazyHTML.tag(lazy_html)
-      "div"
+      ["div"]
+
+      iex> lazy_html = LazyHTML.from_fragment(~S|<span>Hello</span> <span>world</span>|)
+      iex> LazyHTML.tag(lazy_html)
+      ["span", "span"]
 
   """
-  @spec tag(t()) :: String.t()
+  @spec tag(t()) :: list(String.t())
   def tag(%LazyHTML{} = lazy_html) do
     LazyHTML.NIF.tag(lazy_html)
   end

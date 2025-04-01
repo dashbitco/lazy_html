@@ -756,24 +756,24 @@ std::uint64_t num_nodes(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
 
 FINE_NIF(num_nodes, 0);
 
-std::string tag(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
-  if (ex_lazy_html.resource->nodes.size() != 1) {
-    throw std::invalid_argument("expected exactly one node");
+std::vector<fine::Term> tag(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
+  auto values = std::vector<fine::Term>();
+
+  for (auto node : ex_lazy_html.resource->nodes) {
+    if (node->type == LXB_DOM_NODE_TYPE_ELEMENT) {
+      auto element = lxb_dom_interface_element(node);
+
+      size_t name_length;
+      auto name = lxb_dom_element_qualified_name(element, &name_length);
+      if (name == NULL) {
+        throw std::runtime_error("failed to read tag name");
+      }
+      auto name_term = make_new_binary(env, name_length, name);
+      values.push_back(name_term);
+    }
   }
 
-  auto node = ex_lazy_html.resource->nodes[0];
-  if (node->type != LXB_DOM_NODE_TYPE_ELEMENT) {
-    throw std::invalid_argument("expected element node");
-  }
-
-  auto element = lxb_dom_interface_element(node);
-  size_t name_length;
-  auto name = lxb_dom_element_qualified_name(element, &name_length);
-  if (name == NULL) {
-    throw std::runtime_error("failed to read tag name");
-  }
-
-  return std::string(reinterpret_cast<const char *>(name), name_length);
+  return values;
 }
 
 FINE_NIF(tag, 0);
