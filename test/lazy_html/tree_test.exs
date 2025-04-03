@@ -59,4 +59,129 @@ defmodule LazyHTML.TreeTest do
                "<p><span> Hello </span><span> world </span></p>"
     end
   end
+
+  describe "postwalk/3" do
+    test "does post-order traversal of the nodes and accumulates results" do
+      tree = [
+        {:comment, "Hello world"},
+        {"div", [{"class", "root"}],
+         [
+           {"span", [], ["Hello"]},
+           {:comment, "intersection"},
+           {"span", [], ["world"]}
+         ]}
+      ]
+
+      {^tree, nodes} = LazyHTML.Tree.postwalk(tree, [], fn node, acc -> {node, [node | acc]} end)
+
+      assert nodes == [
+               {"div", [{"class", "root"}],
+                [{"span", [], ["Hello"]}, {:comment, "intersection"}, {"span", [], ["world"]}]},
+               {"span", [], ["world"]},
+               "world",
+               {:comment, "intersection"},
+               {"span", [], ["Hello"]},
+               "Hello",
+               {:comment, "Hello world"}
+             ]
+    end
+
+    test "returns tree with nodes updated by the mapper function" do
+      tree = [
+        {:comment, "Hello world"},
+        {"div", [{"class", "root"}],
+         [
+           {"span", [], ["Hello"]},
+           {:comment, "intersection"},
+           {"span", [], ["world"]}
+         ]}
+      ]
+
+      {updated_tree, []} =
+        LazyHTML.Tree.postwalk(tree, [], fn
+          {tag, attrs, children}, acc ->
+            {{tag, [{"data-new", "true"} | attrs], ["new" | children]}, acc}
+
+          {:comment, content}, acc ->
+            {{:comment, content <> " [new]"}, acc}
+
+          text, acc when is_binary(text) ->
+            {text <> " [new]", acc}
+        end)
+
+      assert updated_tree == [
+               {:comment, "Hello world [new]"},
+               {"div", [{"data-new", "true"}, {"class", "root"}],
+                [
+                  "new",
+                  {"span", [{"data-new", "true"}], ["new", "Hello [new]"]},
+                  {:comment, "intersection [new]"},
+                  {"span", [{"data-new", "true"}], ["new", "world [new]"]}
+                ]}
+             ]
+    end
+
+    test "replaces nodes when mapper returns a list" do
+      tree = [
+        {"div", [], [{"span", [{"id", "1"}], ["Hello"]}]},
+        {"div", [], [{"span", [{"id", "2"}], ["World"]}]}
+      ]
+
+      {updated_tree, []} =
+        LazyHTML.Tree.postwalk(tree, [], fn
+          {"span", [{"id", "1"}], _children}, acc ->
+            # Remove the node.
+            {[], acc}
+
+          {"span", [{"id", "2"}], _children}, acc ->
+            # Replace the node with two other nodes.
+            {[{"p", [], []}, {"p", [], []}], acc}
+
+          other, acc ->
+            {other, acc}
+        end)
+
+      assert updated_tree == [
+               {"div", [], []},
+               {"div", [], [{"p", [], []}, {"p", [], []}]}
+             ]
+    end
+  end
+
+  describe "postwalk/2" do
+    test "returns tree with nodes updated by the mapper function" do
+      tree = [
+        {:comment, "Hello world"},
+        {"div", [{"class", "root"}],
+         [
+           {"span", [], ["Hello"]},
+           {:comment, "intersection"},
+           {"span", [], ["world"]}
+         ]}
+      ]
+
+      updated_tree =
+        LazyHTML.Tree.postwalk(tree, fn
+          {tag, attrs, children} ->
+            {tag, [{"data-new", "true"} | attrs], ["new" | children]}
+
+          {:comment, content} ->
+            {:comment, content <> " [new]"}
+
+          text when is_binary(text) ->
+            text <> " [new]"
+        end)
+
+      assert updated_tree == [
+               {:comment, "Hello world [new]"},
+               {"div", [{"data-new", "true"}, {"class", "root"}],
+                [
+                  "new",
+                  {"span", [{"data-new", "true"}], ["new", "Hello [new]"]},
+                  {:comment, "intersection [new]"},
+                  {"span", [{"data-new", "true"}], ["new", "world [new]"]}
+                ]}
+             ]
+    end
+  end
 end

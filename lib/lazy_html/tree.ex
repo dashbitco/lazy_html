@@ -167,4 +167,54 @@ defmodule LazyHTML.Tree do
   defp append_escaped(<<_char, rest::binary>>, text, offset, size, html) do
     append_escaped(rest, text, offset, size + 1, html)
   end
+
+  @doc """
+  Performs a depth-first, post-order traversal of the given tree.
+
+  The mapper `fun` can return a list of nodes to replace the given
+  node. In order to remove a node, return an empty list.
+  """
+  @spec postwalk(
+          t(),
+          acc,
+          (html_node(), acc -> {html_node() | list(html_node()), acc})
+        ) :: {t(), acc}
+        when acc: term()
+  def postwalk(tree, acc, fun), do: do_postwalk(tree, acc, fun)
+
+  defp do_postwalk([], acc, _fun), do: {[], acc}
+
+  defp do_postwalk([node | rest], acc, fun) do
+    case do_postwalk(node, acc, fun) do
+      {nodes, acc} when is_list(nodes) ->
+        {rest, acc} = do_postwalk(rest, acc, fun)
+        {nodes ++ rest, acc}
+
+      {node, acc} ->
+        {rest, acc} = do_postwalk(rest, acc, fun)
+        {[node | rest], acc}
+    end
+  end
+
+  defp do_postwalk({tag, attrs, children}, acc, fun) do
+    {children, acc} = do_postwalk(children, acc, fun)
+    fun.({tag, attrs, children}, acc)
+  end
+
+  defp do_postwalk(node, acc, fun) do
+    fun.(node, acc)
+  end
+
+  @doc """
+  Same a `postwalk/3`, but with no accumulator.
+  """
+  @spec postwalk(t(), (html_node() -> {html_node() | list(html_node())})) :: t()
+  def postwalk(tree, fun) do
+    {tree, {}} =
+      postwalk(tree, {}, fn node, {} ->
+        {fun.(node), {}}
+      end)
+
+    tree
+  end
 end
