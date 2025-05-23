@@ -154,6 +154,14 @@ defmodule LazyHTMLTest do
       assert LazyHTML.to_html(lazy_html, skip_whitespace_nodes: true) ==
                "<p><span> Hello </span><span> world </span></p>"
     end
+
+    test "includes template children" do
+      lazy_html =
+        LazyHTML.from_fragment("<template><div>First</div><div>Second</div></template>")
+
+      assert LazyHTML.to_html(lazy_html) ==
+               "<template><div>First</div><div>Second</div></template>"
+    end
   end
 
   describe "to_tree/2" do
@@ -173,6 +181,32 @@ defmodule LazyHTMLTest do
       assert LazyHTML.to_tree(lazy_html, sort_attributes: true) == [
                {"div", [{"data-a", "a"}, {"data-b", "b"}, {"id", "root"}], ["Hello world"]}
              ]
+    end
+
+    test "includes template children" do
+      lazy_html =
+        LazyHTML.from_fragment("<template><div>First</div><div>Second</div></template>")
+
+      assert LazyHTML.to_tree(lazy_html) == [
+               {"template", [], [{"div", [], ["First"]}, {"div", [], ["Second"]}]}
+             ]
+    end
+  end
+
+  describe "from_tree/2" do
+    test "includes template children" do
+      lazy_html =
+        LazyHTML.from_tree([
+          {"template", [], [{"div", [], ["First"]}, {"div", [], ["Second"]}]}
+        ])
+
+      assert inspect(lazy_html) == """
+             #LazyHTML<
+               1 node
+               #1
+               <template><div>First</div><div>Second</div></template>
+             >\
+             """
     end
   end
 

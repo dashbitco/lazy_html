@@ -224,6 +224,16 @@ size_t leading_whitespace_size(const unsigned char *data, size_t length) {
   return size;
 }
 
+lxb_dom_node_t *template_aware_first_child(lxb_dom_node_t *node) {
+  if (lxb_html_tree_node_is(node, LXB_TAG_TEMPLATE)) {
+    // <template> elements don't have direct children, instead they hold
+    // a document fragment node, so we reach for its first child instead.
+    return lxb_html_interface_template(node)->content->node.first_child;
+  } else {
+    return lxb_dom_node_first_child(node);
+  }
+}
+
 void append_node_html(lxb_dom_node_t *node, bool skip_whitespace_nodes,
                       std::string &html) {
   if (node->type == LXB_DOM_NODE_TYPE_TEXT) {
@@ -282,7 +292,7 @@ void append_node_html(lxb_dom_node_t *node, bool skip_whitespace_nodes,
       html.append("/>");
     } else {
       html.append(">");
-      for (auto child = lxb_dom_node_first_child(node); child != NULL;
+      for (auto child = template_aware_first_child(node); child != NULL;
            child = lxb_dom_node_next(child)) {
         append_node_html(child, skip_whitespace_nodes, html);
       }
@@ -353,7 +363,7 @@ void node_to_tree(ErlNifEnv *env, fine::ResourcePtr<LazyHTML> &resource,
     auto attrs_term = attributes_to_term(env, element, sort_attributes);
 
     auto children = std::vector<ERL_NIF_TERM>();
-    for (auto child = lxb_dom_node_first_child(node); child != NULL;
+    for (auto child = template_aware_first_child(node); child != NULL;
          child = lxb_dom_node_next(child)) {
       node_to_tree(env, resource, child, children, sort_attributes);
     }
@@ -368,12 +378,6 @@ void node_to_tree(ErlNifEnv *env, fine::ResourcePtr<LazyHTML> &resource,
         env, resource, reinterpret_cast<char *>(character_data->data.data),
         character_data->data.length);
     tree.push_back(term);
-  } else if (node->type == LXB_DOM_NODE_TYPE_DOCUMENT ||
-             node->type == LXB_DOM_NODE_TYPE_DOCUMENT_FRAGMENT) {
-    for (auto child = lxb_dom_node_first_child(node); child != NULL;
-         child = lxb_dom_node_next(child)) {
-      node_to_tree(env, resource, child, tree, sort_attributes);
-    }
   } else if (node->type == LXB_DOM_NODE_TYPE_COMMENT) {
     auto character_data = lxb_dom_interface_character_data(node);
     auto term = fine::make_resource_binary(
@@ -432,11 +436,18 @@ lxb_dom_node_t *node_from_tree_item(ErlNifEnv *env,
       }
     }
 
-    auto node = lxb_dom_interface_node(element);
+    auto insert_into_node = lxb_dom_interface_node(element);
+
+    if (lxb_html_tree_node_is(insert_into_node, LXB_TAG_TEMPLATE)) {
+      // <template> elements don't have direct children, instead they hold
+      // a document fragment node, so we insert into the fragment instead.
+      insert_into_node =
+          &lxb_html_interface_template(insert_into_node)->content->node;
+    }
 
     for (auto child_item : children_tree) {
       auto child_node = node_from_tree_item(env, document, child_item);
-      lxb_dom_node_insert_child(node, child_node);
+      lxb_dom_node_insert_child(insert_into_node, child_node);
     }
 
     return lxb_dom_interface_node(element);
