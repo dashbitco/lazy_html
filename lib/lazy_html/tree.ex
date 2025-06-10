@@ -208,7 +208,7 @@ defmodule LazyHTML.Tree do
   @doc """
   Same a `postwalk/3`, but with no accumulator.
   """
-  @spec postwalk(t(), (html_node() -> {html_node() | list(html_node())})) :: t()
+  @spec postwalk(t(), (html_node() -> html_node() | list(html_node()))) :: t()
   def postwalk(tree, fun) do
     {tree, {}} =
       postwalk(tree, {}, fn node, {} ->
