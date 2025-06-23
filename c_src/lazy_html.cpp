@@ -3,6 +3,7 @@
 #include <fine.hpp>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -402,9 +403,22 @@ fine::Term to_tree(ErlNifEnv *env, ExLazyHTML ex_lazy_html,
 
 FINE_NIF(to_tree, 0);
 
+std::optional<uintptr_t> get_tag_namespace(ErlNifBinary name) {
+  if (strncmp("svg", reinterpret_cast<char *>(name.data), name.size) == 0) {
+    // For SVG we explicitly set the namespace, similar to
+    // `document.createElementNS`. It is important because attribute
+    // names are lowercased for HTML elements, but should not be
+    // lowercased inside SVG.
+    return LXB_NS_SVG;
+  }
+
+  return std::nullopt;
+}
+
 lxb_dom_node_t *node_from_tree_item(ErlNifEnv *env,
                                     lxb_html_document_t *document,
-                                    fine::Term item) {
+                                    fine::Term item,
+                                    std::optional<uintptr_t> ns) {
   using ExText = ErlNifBinary;
   using ExElement =
       std::tuple<ErlNifBinary,
@@ -428,6 +442,16 @@ lxb_dom_node_t *node_from_tree_item(ErlNifEnv *env,
     auto element = lxb_dom_document_create_element(&document->dom_document,
                                                    name.data, name.size, NULL);
 
+    auto node = lxb_dom_interface_node(element);
+
+    if (!ns) {
+      ns = get_tag_namespace(name);
+    }
+
+    if (ns) {
+      node->ns = ns.value();
+    }
+
     for (auto &[key, value] : attributes) {
       auto attr = lxb_dom_element_set_attribute(element, key.data, key.size,
                                                 value.data, value.size);
@@ -436,18 +460,15 @@ lxb_dom_node_t *node_from_tree_item(ErlNifEnv *env,
       }
     }
 
-    auto insert_into_node = lxb_dom_interface_node(element);
-
-    if (lxb_html_tree_node_is(insert_into_node, LXB_TAG_TEMPLATE)) {
+    if (lxb_html_tree_node_is(node, LXB_TAG_TEMPLATE)) {
       // <template> elements don't have direct children, instead they hold
       // a document fragment node, so we insert into the fragment instead.
-      insert_into_node =
-          &lxb_html_interface_template(insert_into_node)->content->node;
+      node = &lxb_html_interface_template(node)->content->node;
     }
 
     for (auto child_item : children_tree) {
-      auto child_node = node_from_tree_item(env, document, child_item);
-      lxb_dom_node_insert_child(insert_into_node, child_node);
+      auto child_node = node_from_tree_item(env, document, child_item, ns);
+      lxb_dom_node_insert_child(node, child_node);
     }
 
     return lxb_dom_interface_node(element);
@@ -482,7 +503,7 @@ ExLazyHTML from_tree(ErlNifEnv *env, std::vector<fine::Term> tree) {
   auto nodes = std::vector<lxb_dom_node_t *>();
 
   for (auto tree_node : tree) {
-    auto node = node_from_tree_item(env, document, tree_node);
+    auto node = node_from_tree_item(env, document, tree_node, std::nullopt);
     lxb_dom_node_insert_child(root, lxb_dom_interface_node(node));
     nodes.push_back(node);
   }

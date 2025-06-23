@@ -208,6 +208,24 @@ defmodule LazyHTMLTest do
              >\
              """
     end
+
+    test "respects attribute name casing within svg" do
+      lazy_html =
+        LazyHTML.from_tree([
+          {"svg", [{"viewBox", "0 0 100 100"}],
+           [
+             {"defs", [], [{"marker", [{"markerWidth", "10"}, {"markerHeight", "7"}], []}]}
+           ]}
+        ])
+
+      assert inspect(lazy_html) == """
+             #LazyHTML<
+               1 node
+               #1
+               <svg viewBox="0 0 100 100"><defs><marker markerWidth="10" markerHeight="7"></marker></defs></svg>
+             >\
+             """
+    end
   end
 
   describe "query/2" do
