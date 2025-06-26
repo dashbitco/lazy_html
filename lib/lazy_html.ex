@@ -122,6 +122,10 @@ defmodule LazyHTML do
     * `:sort_attributes` - when `true`, attributes lists are sorted
       alphabetically by name. Defaults to `false`.
 
+    * `:skip_whitespace_nodes` - when `true`, ignores text nodes that
+      consist entirely of whitespace, usually whitespace between tags.
+      Defaults to `false`.
+
   ## Examples
 
       iex> lazy_html = LazyHTML.from_document(~S|<html><head><title>Page</title></head><body>Hello world</body></html>|)
@@ -143,9 +147,9 @@ defmodule LazyHTML do
   """
   @spec to_tree(t(), keyword()) :: LazyHTML.Tree.t()
   def to_tree(%LazyHTML{} = lazy_html, opts \\ []) when is_list(opts) do
-    opts = Keyword.validate!(opts, sort_attributes: false)
+    opts = Keyword.validate!(opts, sort_attributes: false, skip_whitespace_nodes: false)
 
-    LazyHTML.NIF.to_tree(lazy_html, opts[:sort_attributes])
+    LazyHTML.NIF.to_tree(lazy_html, opts[:sort_attributes], opts[:skip_whitespace_nodes])
   end
 
   @doc """

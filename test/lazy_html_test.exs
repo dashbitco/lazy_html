@@ -145,14 +145,14 @@ defmodule LazyHTMLTest do
     test "with :skip_whitespace_nodes" do
       lazy_html =
         LazyHTML.from_fragment("""
-        <p>
-          <span> Hello </span>
-          <span> world </span>
+          <p>
+          <span>  Hello  </span>
+          <span>  world  </span>
         </p>
         """)
 
       assert LazyHTML.to_html(lazy_html, skip_whitespace_nodes: true) ==
-               "<p><span> Hello </span><span> world </span></p>"
+               "<p><span>  Hello  </span><span>  world  </span></p>"
     end
 
     test "includes template children" do
@@ -190,6 +190,19 @@ defmodule LazyHTMLTest do
       assert LazyHTML.to_tree(lazy_html) == [
                {"template", [], [{"div", [], ["First"]}, {"div", [], ["Second"]}]}
              ]
+    end
+
+    test "skip_whitespace_nodes: true" do
+      lazy_html =
+        LazyHTML.from_fragment("""
+          <p>
+          <span>  Hello  </span>
+          <span>  world  </span>
+        </p>
+        """)
+
+      assert LazyHTML.to_tree(lazy_html, skip_whitespace_nodes: true) ==
+               [{"p", [], [{"span", [], ["  Hello  "]}, {"span", [], ["  world  "]}]}]
     end
   end
 

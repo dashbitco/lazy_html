@@ -15,7 +15,7 @@ defmodule LazyHTML.NIF do
   def from_document(_html), do: err!()
   def from_fragment(_html), do: err!()
   def to_html(_lazy_html, _skip_whitespace_nodes), do: err!()
-  def to_tree(_lazy_html, _sort_attributes), do: err!()
+  def to_tree(_lazy_html, _sort_attributes, _skip_whitespace_nodes), do: err!()
   def from_tree(_tree), do: err!()
   def query(_lazy_html, _css_selector), do: err!()
   def filter(_lazy_html, _css_selector), do: err!()

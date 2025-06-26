@@ -350,7 +350,7 @@ ERL_NIF_TERM attributes_to_term(ErlNifEnv *env, lxb_dom_element_t *element,
 
 void node_to_tree(ErlNifEnv *env, fine::ResourcePtr<LazyHTML> &resource,
                   lxb_dom_node_t *node, std::vector<ERL_NIF_TERM> &tree,
-                  bool sort_attributes) {
+                  bool sort_attributes, bool skip_whitespace_nodes) {
   if (node->type == LXB_DOM_NODE_TYPE_ELEMENT) {
     auto element = lxb_dom_interface_element(node);
 
@@ -366,7 +366,8 @@ void node_to_tree(ErlNifEnv *env, fine::ResourcePtr<LazyHTML> &resource,
     auto children = std::vector<ERL_NIF_TERM>();
     for (auto child = template_aware_first_child(node); child != NULL;
          child = lxb_dom_node_next(child)) {
-      node_to_tree(env, resource, child, children, sort_attributes);
+      node_to_tree(env, resource, child, children, sort_attributes,
+          skip_whitespace_nodes);
     }
 
     auto children_term = enif_make_list_from_array(
@@ -375,10 +376,19 @@ void node_to_tree(ErlNifEnv *env, fine::ResourcePtr<LazyHTML> &resource,
     tree.push_back(enif_make_tuple3(env, name_term, attrs_term, children_term));
   } else if (node->type == LXB_DOM_NODE_TYPE_TEXT) {
     auto character_data = lxb_dom_interface_character_data(node);
-    auto term = fine::make_resource_binary(
-        env, resource, reinterpret_cast<char *>(character_data->data.data),
-        character_data->data.length);
-    tree.push_back(term);
+
+    auto whitespace_size = leading_whitespace_size(character_data->data.data,
+                                                   character_data->data.length);
+
+    if (whitespace_size == character_data->data.length &&
+        skip_whitespace_nodes) {
+      // Append nothing
+    } else {
+      auto term = fine::make_resource_binary(
+          env, resource, reinterpret_cast<char *>(character_data->data.data),
+          character_data->data.length);
+      tree.push_back(term);
+    }
   } else if (node->type == LXB_DOM_NODE_TYPE_COMMENT) {
     auto character_data = lxb_dom_interface_character_data(node);
     auto term = fine::make_resource_binary(
@@ -390,11 +400,12 @@ void node_to_tree(ErlNifEnv *env, fine::ResourcePtr<LazyHTML> &resource,
 }
 
 fine::Term to_tree(ErlNifEnv *env, ExLazyHTML ex_lazy_html,
-                   bool sort_attributes) {
+                   bool sort_attributes, bool skip_whitespace_nodes) {
   auto tree = std::vector<ERL_NIF_TERM>();
 
   for (auto node : ex_lazy_html.resource->nodes) {
-    node_to_tree(env, ex_lazy_html.resource, node, tree, sort_attributes);
+    node_to_tree(env, ex_lazy_html.resource, node, tree, sort_attributes,
+        skip_whitespace_nodes);
   }
 
   return enif_make_list_from_array(env, tree.data(),
