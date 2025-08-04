@@ -60,6 +60,33 @@ defmodule LazyHTML.TreeTest do
     end
   end
 
+  describe "traverse/3" do
+    test "does post-order traversal of the nodes and accumulates results" do
+      tree = [
+        {:comment, "Hello world"},
+        {"div", [{"class", "root"}],
+         [
+           {"span", [], ["Hello"]},
+           {:comment, "intersection"},
+           {"span", [], ["world"]}
+         ]}
+      ]
+
+      nodes = LazyHTML.Tree.traverse(tree, [], fn node, acc -> [node | acc] end)
+
+      assert nodes == [
+               {"div", [{"class", "root"}],
+                [{"span", [], ["Hello"]}, {:comment, "intersection"}, {"span", [], ["world"]}]},
+               {"span", [], ["world"]},
+               "world",
+               {:comment, "intersection"},
+               {"span", [], ["Hello"]},
+               "Hello",
+               {:comment, "Hello world"}
+             ]
+    end
+  end
+
   describe "postwalk/3" do
     test "does post-order traversal of the nodes and accumulates results" do
       tree = [

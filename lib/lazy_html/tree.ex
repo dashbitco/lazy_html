@@ -172,6 +172,36 @@ defmodule LazyHTML.Tree do
   @doc """
   Performs a depth-first, post-order traversal of the given tree.
 
+  This function traverses the tree without modifying it, check `postwalk/2` and
+  `postwalk/3` if you need to modify the tree.
+  """
+  @spec traverse(
+          t(),
+          acc,
+          (html_node(), acc -> acc)
+        ) :: acc
+        when acc: term()
+  def traverse(tree, acc, fun), do: do_traverse(tree, acc, fun)
+
+  defp do_traverse([], acc, _fun), do: acc
+
+  defp do_traverse([node | rest], acc, fun) do
+    acc = do_traverse(node, acc, fun)
+    do_traverse(rest, acc, fun)
+  end
+
+  defp do_traverse({tag, attrs, children}, acc, fun) do
+    acc = do_traverse(children, acc, fun)
+    fun.({tag, attrs, children}, acc)
+  end
+
+  defp do_traverse(node, acc, fun) do
+    fun.(node, acc)
+  end
+
+  @doc """
+  Performs a depth-first, post-order traversal of the given tree.
+
   The mapper `fun` can return a list of nodes to replace the given
   node. In order to remove a node, return an empty list.
   """
