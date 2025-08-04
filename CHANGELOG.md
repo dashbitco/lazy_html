@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.1.4](https://github.com/dashbitco/lazy_html/tree/v0.1.4) (2025-08-04)
+
+### Added
+
+- Added `LazyHTML.html_escape/1` ([#14](https://github.com/dashbitco/lazy_html/pull/14))
+
 ## [v0.1.3](https://github.com/dashbitco/lazy_html/tree/v0.1.3) (2025-06-26)
 
 ### Added
