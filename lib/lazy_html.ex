@@ -481,6 +481,26 @@ defmodule LazyHTML do
     LazyHTML.NIF.tag(lazy_html)
   end
 
+  @doc ~S"""
+  Escapes the given string to make a valid HTML text.
+
+  ## Examples
+
+      iex> LazyHTML.html_escape("foo")
+      "foo"
+
+      iex> LazyHTML.html_escape("<foo>")
+      "&lt;foo&gt;"
+
+      iex> LazyHTML.html_escape("quotes: \" & \'")
+      "quotes: &quot; &amp; &#39;"
+
+  """
+  @spec html_escape(String.t()) :: String.t()
+  def html_escape(string) when is_binary(string) do
+    LazyHTML.Tree.append_escaped(string, "")
+  end
+
   # Access
 
   @impl true
