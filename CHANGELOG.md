@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.1.5](https://github.com/dashbitco/lazy_html/tree/v0.1.5) (2025-08-05)
+
+### Added
+
+- Added `LazyHTML.Tree.postreduce/3` and `LazyHTML.Tree.prereduce/3` ([#15](https://github.com/dashbitco/lazy_html/pull/15))
+
+### Changed
+
+- Lowered the runtime glibc version requirement ([#16](https://github.com/dashbitco/lazy_html/pull/16))
+
 ## [v0.1.4](https://github.com/dashbitco/lazy_html/tree/v0.1.4) (2025-08-04)
 
 ### Added
