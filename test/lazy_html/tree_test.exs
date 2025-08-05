@@ -60,7 +60,7 @@ defmodule LazyHTML.TreeTest do
     end
   end
 
-  describe "pre/3" do
+  describe "prereduce/3" do
     test "does pre-order traversal of the nodes and accumulates results" do
       tree = [
         {:comment, "Hello world"},
