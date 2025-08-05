@@ -181,6 +181,8 @@ defmodule LazyHTML.Tree do
           (html_node(), acc -> acc)
         ) :: acc
         when acc: term()
+  def postreduce(tree, acc, fun)
+
   def postreduce([], acc, _fun), do: acc
 
   def postreduce([node | rest], acc, fun) do
