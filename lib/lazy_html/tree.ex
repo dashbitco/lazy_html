@@ -175,27 +175,25 @@ defmodule LazyHTML.Tree do
   This function traverses the tree without modifying it, check `postwalk/2` and
   `postwalk/3` if you need to modify the tree.
   """
-  @spec traverse(
+  @spec postreduce(
           t(),
           acc,
           (html_node(), acc -> acc)
         ) :: acc
         when acc: term()
-  def traverse(tree, acc, fun), do: do_traverse(tree, acc, fun)
+  def postreduce([], acc, _fun), do: acc
 
-  defp do_traverse([], acc, _fun), do: acc
-
-  defp do_traverse([node | rest], acc, fun) do
-    acc = do_traverse(node, acc, fun)
-    do_traverse(rest, acc, fun)
+  def postreduce([node | rest], acc, fun) do
+    acc = postreduce(node, acc, fun)
+    postreduce(rest, acc, fun)
   end
 
-  defp do_traverse({tag, attrs, children}, acc, fun) do
-    acc = do_traverse(children, acc, fun)
+  def postreduce({tag, attrs, children}, acc, fun) do
+    acc = postreduce(children, acc, fun)
     fun.({tag, attrs, children}, acc)
   end
 
-  defp do_traverse(node, acc, fun) do
+  def postreduce(node, acc, fun) do
     fun.(node, acc)
   end
 

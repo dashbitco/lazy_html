@@ -60,7 +60,7 @@ defmodule LazyHTML.TreeTest do
     end
   end
 
-  describe "traverse/3" do
+  describe "postreduce/3" do
     test "does post-order traversal of the nodes and accumulates results" do
       tree = [
         {:comment, "Hello world"},
@@ -72,7 +72,7 @@ defmodule LazyHTML.TreeTest do
          ]}
       ]
 
-      nodes = LazyHTML.Tree.traverse(tree, [], fn node, acc -> [node | acc] end)
+      nodes = LazyHTML.Tree.postreduce(tree, [], fn node, acc -> [node | acc] end)
 
       assert nodes == [
                {"div", [{"class", "root"}],
