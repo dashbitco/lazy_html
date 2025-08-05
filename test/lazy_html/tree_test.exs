@@ -60,6 +60,60 @@ defmodule LazyHTML.TreeTest do
     end
   end
 
+  describe "prereduce/3" do
+    test "does pre-order traversal of the nodes and accumulates results" do
+      tree = [
+        {:comment, "Hello world"},
+        {"div", [{"class", "root"}],
+         [
+           {"span", [], ["Hello"]},
+           {:comment, "intersection"},
+           {"span", [], ["world"]}
+         ]}
+      ]
+
+      nodes = LazyHTML.Tree.prereduce(tree, [], fn node, acc -> [node | acc] end)
+
+      assert nodes == [
+               "world",
+               {"span", [], ["world"]},
+               {:comment, "intersection"},
+               "Hello",
+               {"span", [], ["Hello"]},
+               {"div", [{"class", "root"}],
+                [{"span", [], ["Hello"]}, {:comment, "intersection"}, {"span", [], ["world"]}]},
+               {:comment, "Hello world"}
+             ]
+    end
+  end
+
+  describe "postreduce/3" do
+    test "does post-order traversal of the nodes and accumulates results" do
+      tree = [
+        {:comment, "Hello world"},
+        {"div", [{"class", "root"}],
+         [
+           {"span", [], ["Hello"]},
+           {:comment, "intersection"},
+           {"span", [], ["world"]}
+         ]}
+      ]
+
+      nodes = LazyHTML.Tree.postreduce(tree, [], fn node, acc -> [node | acc] end)
+
+      assert nodes == [
+               {"div", [{"class", "root"}],
+                [{"span", [], ["Hello"]}, {:comment, "intersection"}, {"span", [], ["world"]}]},
+               {"span", [], ["world"]},
+               "world",
+               {:comment, "intersection"},
+               {"span", [], ["Hello"]},
+               "Hello",
+               {:comment, "Hello world"}
+             ]
+    end
+  end
+
   describe "postwalk/3" do
     test "does post-order traversal of the nodes and accumulates results" do
       tree = [

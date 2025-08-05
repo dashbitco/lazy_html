@@ -170,6 +170,63 @@ defmodule LazyHTML.Tree do
   end
 
   @doc """
+  Performs a depth-first, pre-order traversal of the given tree.
+
+  This function traverses the tree without modifying it, check `postwalk/2` and
+  `postwalk/3` if you need to modify the tree.
+  """
+  @spec prereduce(
+          t(),
+          acc,
+          (html_node(), acc -> acc)
+        ) :: acc
+        when acc: term()
+  def prereduce(tree, acc, fun)
+
+  def prereduce([{tag, attrs, children} | rest], acc, fun) do
+    acc = fun.({tag, attrs, children}, acc)
+    acc = prereduce(children, acc, fun)
+    prereduce(rest, acc, fun)
+  end
+
+  def prereduce([node | rest], acc, fun) do
+    acc = fun.(node, acc)
+    prereduce(rest, acc, fun)
+  end
+
+  def prereduce([], acc, _fun), do: acc
+
+  @doc """
+  Performs a depth-first, post-order traversal of the given tree.
+
+  This function traverses the tree without modifying it, check `postwalk/2` and
+  `postwalk/3` if you need to modify the tree.
+  """
+  @spec postreduce(
+          t(),
+          acc,
+          (html_node(), acc -> acc)
+        ) :: acc
+        when acc: term()
+  def postreduce(tree, acc, fun)
+
+  def postreduce([], acc, _fun), do: acc
+
+  def postreduce([node | rest], acc, fun) do
+    acc = postreduce(node, acc, fun)
+    postreduce(rest, acc, fun)
+  end
+
+  def postreduce({tag, attrs, children}, acc, fun) do
+    acc = postreduce(children, acc, fun)
+    fun.({tag, attrs, children}, acc)
+  end
+
+  def postreduce(node, acc, fun) do
+    fun.(node, acc)
+  end
+
+  @doc """
   Performs a depth-first, post-order traversal of the given tree.
 
   The mapper `fun` can return a list of nodes to replace the given
