@@ -133,8 +133,9 @@ defmodule LazyHTML.Tree do
   #
   # [1]: https://github.com/phoenixframework/phoenix_html/blob/v4.2.1/lib/phoenix_html/engine.ex#L29-L35
 
-  @doc false
-  def append_escaped(text, html) do
+  # Note: it is important for this function to be private to maximise
+  # optimisation, see https://github.com/dashbitco/lazy_html/pull/18#issuecomment-3162730539.
+  defp append_escaped(text, html) do
     append_escaped(text, text, 0, 0, html)
   end
 
@@ -275,4 +276,7 @@ defmodule LazyHTML.Tree do
 
     tree
   end
+
+  @doc false
+  def html_escape(string), do: append_escaped(string, "")
 end
