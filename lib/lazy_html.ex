@@ -498,7 +498,10 @@ defmodule LazyHTML do
   """
   @spec html_escape(String.t()) :: String.t()
   def html_escape(string) when is_binary(string) do
-    LazyHTML.Tree.append_escaped(string, "")
+    string
+    |> LazyHTML.Tree.append_escaped([])
+    |> Enum.reverse()
+    |> IO.iodata_to_binary()
   end
 
   # Access
