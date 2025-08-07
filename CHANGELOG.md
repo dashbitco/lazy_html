@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.1.6](https://github.com/dashbitco/lazy_html/tree/v0.1.6) (2025-08-07)
+
+### Fixed
+
+- Fixed regression in `LazyHTML.Tree.to_html/1` memory usage ([#19](https://github.com/dashbitco/lazy_html/pull/19))
+
 ## [v0.1.5](https://github.com/dashbitco/lazy_html/tree/v0.1.5) (2025-08-05)
 
 ### Added
