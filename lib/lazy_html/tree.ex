@@ -135,9 +135,9 @@ defmodule LazyHTML.Tree do
 
   # Note: it is important for this function to be private, so that the
   # Erlang compiler can infer that it is safe to use mutating appends
-  # on the underlying binary and maximise optimisations.
+  # on the underlying binary and maximise optimisations [1].
   #
-  # See https://github.com/dashbitco/lazy_html/pull/18#issuecomment-3162730539.
+  # [1]: https://github.com/dashbitco/lazy_html/pull/19
   defp append_escaped(text, html) do
     append_escaped(text, text, 0, 0, html)
   end
