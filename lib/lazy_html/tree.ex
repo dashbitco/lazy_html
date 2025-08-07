@@ -133,8 +133,11 @@ defmodule LazyHTML.Tree do
   #
   # [1]: https://github.com/phoenixframework/phoenix_html/blob/v4.2.1/lib/phoenix_html/engine.ex#L29-L35
 
-  # Note: it is important for this function to be private to maximise
-  # optimisation, see https://github.com/dashbitco/lazy_html/pull/18#issuecomment-3162730539.
+  # Note: it is important for this function to be private, so that the
+  # Erlang compiler can infer that it is safe to use mutating appends
+  # on the underlying binary and maximise optimisations.
+  #
+  # See https://github.com/dashbitco/lazy_html/pull/18#issuecomment-3162730539.
   defp append_escaped(text, html) do
     append_escaped(text, text, 0, 0, html)
   end
