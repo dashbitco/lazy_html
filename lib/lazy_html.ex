@@ -500,7 +500,6 @@ defmodule LazyHTML do
   def html_escape(string) when is_binary(string) do
     string
     |> LazyHTML.Tree.append_escaped([])
-    |> Enum.reverse()
     |> IO.iodata_to_binary()
   end
 

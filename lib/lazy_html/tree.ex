@@ -59,7 +59,6 @@ defmodule LazyHTML.Tree do
 
     tree
     |> to_html(ctx, [])
-    |> Enum.reverse()
     |> IO.iodata_to_binary()
   end
 
@@ -73,17 +72,17 @@ defmodule LazyHTML.Tree do
   defp to_html([], _ctx, html), do: html
 
   defp to_html([{tag, attrs, children} | tree], ctx, html) do
-    html = [tag, ?< | html]
+    html = [html, ?<, tag]
     html = append_attrs(attrs, html)
 
     if tag in @void_tags do
-      html = ["/>" | html]
+      html = [html, "/>"]
       to_html(tree, ctx, html)
     else
-      html = [?> | html]
+      html = [html, ?>]
       escape_children = tag not in @no_escape_tags
       html = to_html(children, %{ctx | escape: escape_children}, html)
-      html = [?>, tag, "</" | html]
+      html = [html, "</", tag, ?>]
       to_html(tree, ctx, html)
     end
   end
@@ -94,16 +93,16 @@ defmodule LazyHTML.Tree do
   end
 
   defp to_html([{:comment, content} | tree], ctx, html) do
-    html = ["-->", content, "<!--" | html]
+    html = [html, "<!--", content, "-->"]
     to_html(tree, ctx, html)
   end
 
   defp append_attrs([], html), do: html
 
   defp append_attrs([{name, value} | attrs], html) do
-    html = [~S/="/, name, ?\s | html]
+    html = [html, ?\s, name, ~S/="/]
     html = append_escaped(value, html)
-    html = [?" | html]
+    html = [html, ?"]
     append_attrs(attrs, html)
   end
 
@@ -117,7 +116,7 @@ defmodule LazyHTML.Tree do
 
   defp append_text(<<_rest::binary>>, text, _whitespace_size, ctx, html)
        when not ctx.escape,
-       do: [text | html]
+       do: [html, text]
 
   defp append_text(<<rest::binary>>, text, whitespace_size, ctx, html)
        when ctx.escape,
@@ -142,12 +141,12 @@ defmodule LazyHTML.Tree do
   defp append_escaped(<<>>, text, 0 = _offset, _size, html) do
     # We scanned the whole text and there were no characters to escape,
     # so we append the whole text.
-    [text | html]
+    [html, text]
   end
 
   defp append_escaped(<<>>, text, offset, size, html) do
     chunk = binary_part(text, offset, size)
-    [chunk | html]
+    [html, chunk]
   end
 
   escapes = [
@@ -161,7 +160,7 @@ defmodule LazyHTML.Tree do
   for {char, escaped} <- escapes do
     defp append_escaped(<<unquote(char), rest::binary>>, text, offset, size, html) do
       chunk = binary_part(text, offset, size)
-      html = [unquote(escaped), chunk | html]
+      html = [html, chunk, unquote(escaped)]
       append_escaped(rest, text, offset + size + 1, 0, html)
     end
   end
