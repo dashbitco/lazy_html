@@ -250,6 +250,71 @@ defmodule LazyHTMLTest do
     end
   end
 
+  describe "replace/3" do
+    test "replaces a single element with new content" do
+      lazy_html = LazyHTML.from_fragment(~S|<div id="main"><span>Old content</span></div>|)
+      new_content = LazyHTML.from_fragment(~S|<p>New content</p>|)
+      
+      result = LazyHTML.replace(lazy_html, "#main span", new_content)
+      
+      assert LazyHTML.to_html(result) == ~S|<div id="main"><p>New content</p></div>|
+    end
+
+    test "replaces element in a list" do
+      lazy_html = LazyHTML.from_fragment(~S|<ul><li>Item 1</li><li id="target">Item 2</li><li>Item 3</li></ul>|)
+      new_content = LazyHTML.from_fragment(~S|<li class="replaced">Replaced item</li>|)
+      
+      result = LazyHTML.replace(lazy_html, "#target", new_content)
+      
+      assert LazyHTML.to_html(result) == ~S|<ul><li>Item 1</li><li class="replaced">Replaced item</li><li>Item 3</li></ul>|
+    end
+
+    test "replaces with multiple nodes" do
+      lazy_html = LazyHTML.from_fragment(~S|<div><p id="old">Old paragraph</p></div>|)
+      new_content = LazyHTML.from_fragment(~S|<h1>Title</h1><p>New paragraph</p>|)
+      
+      result = LazyHTML.replace(lazy_html, "#old", new_content)
+      
+      assert LazyHTML.to_html(result) == ~S|<div><h1>Title</h1><p>New paragraph</p></div>|
+    end
+
+    test "raises when no elements match" do
+      lazy_html = LazyHTML.from_fragment(~S|<div><span>Content</span></div>|)
+      new_content = LazyHTML.from_fragment(~S|<p>New content</p>|)
+      
+      assert_raise ArgumentError, "no elements found matching selector", fn ->
+        LazyHTML.replace(lazy_html, "#nonexistent", new_content)
+      end
+    end
+
+    test "raises when multiple elements match" do
+      lazy_html = LazyHTML.from_fragment(~S|<div><span>First</span><span>Second</span></div>|)
+      new_content = LazyHTML.from_fragment(~S|<p>New content</p>|)
+      
+      assert_raise ArgumentError, ~r/expected exactly 1 element matching selector.*but found 2/, fn ->
+        LazyHTML.replace(lazy_html, "span", new_content)
+      end
+    end
+
+    test "works with complex selectors" do
+      lazy_html = LazyHTML.from_fragment(~S|<div class="container"><div class="item active">Active item</div><div class="item">Inactive item</div></div>|)
+      new_content = LazyHTML.from_fragment(~S|<div class="item updated">Updated item</div>|)
+      
+      result = LazyHTML.replace(lazy_html, ".item.active", new_content)
+      
+      assert LazyHTML.to_html(result) == ~S|<div class="container"><div class="item updated">Updated item</div><div class="item">Inactive item</div></div>|
+    end
+
+    test "preserves document structure when replacing nested elements" do
+      lazy_html = LazyHTML.from_fragment(~S|<article><header><h1 id="title">Old Title</h1></header><main>Content</main></article>|)
+      new_content = LazyHTML.from_fragment(~S|<h1 id="title" class="new">New Title</h1>|)
+      
+      result = LazyHTML.replace(lazy_html, "#title", new_content)
+      
+      assert LazyHTML.to_html(result) == ~S|<article><header><h1 id="title" class="new">New Title</h1></header><main>Content</main></article>|
+    end
+  end
+
   describe "query_by_id/2" do
     test "raises when an empty id is given" do
       assert_raise ArgumentError, ~r/id cannot be empty/, fn ->

@@ -821,6 +821,85 @@ std::vector<fine::Term> tag(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
 
 FINE_NIF(tag, 0);
 
+ExLazyHTML replace(ErlNifEnv *env, ExLazyHTML ex_lazy_html,
+                   ErlNifBinary css_selector, ExLazyHTML ex_new_content) {
+  // Parse the CSS selector
+  auto parser = lxb_css_parser_create();
+  auto status = lxb_css_parser_init(parser, NULL);
+  if (status != LXB_STATUS_OK) {
+    throw std::runtime_error("failed to create css parser");
+  }
+  auto parser_guard =
+      ScopeGuard([&]() { lxb_css_parser_destroy(parser, true); });
+
+  auto css_selector_list = parse_css_selector(parser, css_selector);
+
+  // Find matching nodes
+  auto matching_nodes = std::vector<lxb_dom_node_t *>();
+  
+  for (auto node : ex_lazy_html.resource->nodes) {
+    auto selectors = lxb_selectors_create();
+    auto status = lxb_selectors_init(selectors);
+    if (status != LXB_STATUS_OK) {
+      throw std::runtime_error("failed to create selectors");
+    }
+    auto selectors_guard =
+        ScopeGuard([&]() { lxb_selectors_destroy(selectors, true); });
+
+    std::vector<lxb_dom_node_t *> nodes_from_this_root;
+    status = lxb_selectors_find(
+        selectors, node, css_selector_list,
+        [](lxb_dom_node_t *node, lxb_css_selector_specificity_t spec,
+           void *ctx) -> lxb_status_t {
+          auto nodes =
+              reinterpret_cast<std::vector<lxb_dom_node_t *> *>(ctx);
+          nodes->push_back(node);
+          return LXB_STATUS_OK;
+        },
+        &nodes_from_this_root);
+    if (status != LXB_STATUS_OK) {
+      throw std::runtime_error("failed to run find");
+    }
+    
+    matching_nodes.insert(matching_nodes.end(), nodes_from_this_root.begin(),
+                         nodes_from_this_root.end());
+  }
+
+  // Check that exactly one node matches
+  if (matching_nodes.size() == 0) {
+    throw std::invalid_argument("no elements found matching selector");
+  }
+  if (matching_nodes.size() > 1) {
+    throw std::invalid_argument("expected exactly 1 element matching selector, but found " + 
+                               std::to_string(matching_nodes.size()));
+  }
+
+  auto target_node = matching_nodes[0];
+  auto parent_node = lxb_dom_node_parent(target_node);
+  
+  if (parent_node == NULL) {
+    throw std::runtime_error("cannot replace root node");
+  }
+
+  // Insert all new content nodes before the target node
+  for (auto new_node : ex_new_content.resource->nodes) {
+    // Clone the node to avoid ownership issues
+    auto cloned_node = lxb_dom_node_clone(new_node, true);
+    if (cloned_node == NULL) {
+      throw std::runtime_error("failed to clone new content node");
+    }
+    lxb_dom_node_insert_before(target_node, cloned_node);
+  }
+
+  // Remove the target node
+  lxb_dom_node_remove(target_node);
+
+  // Return the original lazy_html (which has been modified in place)
+  return ex_lazy_html;
+}
+
+FINE_NIF(replace, ERL_NIF_DIRTY_JOB_CPU_BOUND);
+
 } // namespace lazy_html
 
 FINE_INIT("Elixir.LazyHTML.NIF");
