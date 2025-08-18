@@ -513,6 +513,39 @@ defmodule LazyHTML do
     LazyHTML.NIF.replace(lazy_html, selector, new_content)
   end
 
+  @doc ~S'''
+  Appends child content to the element matching the given CSS selector.
+
+  The function expects exactly one element to match the selector. If no
+  element or more than one element matches, it raises an ArgumentError.
+  The child content is appended as the last child(ren) of the matched element.
+
+  ## Examples
+
+      iex> lazy_html = LazyHTML.from_fragment(~S|<div id="container"><p>Existing content</p></div>|)
+      iex> child_content = LazyHTML.from_fragment(~S|<span>New child</span>|)
+      iex> LazyHTML.appendChild(lazy_html, "#container", child_content)
+      #LazyHTML<
+        1 node
+        #1
+        <div id="container"><p>Existing content</p><span>New child</span></div>
+      >
+
+      iex> lazy_html = LazyHTML.from_fragment(~S|<ul id="list"><li>Item 1</li></ul>|)
+      iex> child_content = LazyHTML.from_fragment(~S|<li>Item 2</li><li>Item 3</li>|)
+      iex> LazyHTML.appendChild(lazy_html, "#list", child_content)
+      #LazyHTML<
+        1 node
+        #1
+        <ul id="list"><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul>
+      >
+
+  '''
+  @spec appendChild(t(), String.t(), t()) :: t()
+  def appendChild(%LazyHTML{} = lazy_html, selector, %LazyHTML{} = child_content) when is_binary(selector) do
+    LazyHTML.NIF.append_child(lazy_html, selector, child_content)
+  end
+
   @doc ~S"""
   Escapes the given string to make a valid HTML text.
 

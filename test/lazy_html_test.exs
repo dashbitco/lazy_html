@@ -315,6 +315,89 @@ defmodule LazyHTMLTest do
     end
   end
 
+  describe "appendChild/3" do
+    test "appends a single child to container" do
+      lazy_html = LazyHTML.from_fragment(~S|<div id="container"><p>Existing content</p></div>|)
+      child_content = LazyHTML.from_fragment(~S|<span>New child</span>|)
+      
+      result = LazyHTML.appendChild(lazy_html, "#container", child_content)
+      
+      assert LazyHTML.to_html(result) == ~S|<div id="container"><p>Existing content</p><span>New child</span></div>|
+    end
+
+    test "appends multiple children to list" do
+      lazy_html = LazyHTML.from_fragment(~S|<ul id="list"><li>Item 1</li></ul>|)
+      child_content = LazyHTML.from_fragment(~S|<li>Item 2</li><li>Item 3</li>|)
+      
+      result = LazyHTML.appendChild(lazy_html, "#list", child_content)
+      
+      assert LazyHTML.to_html(result) == ~S|<ul id="list"><li>Item 1</li><li>Item 2</li><li>Item 3</li></ul>|
+    end
+
+    test "appends to empty element" do
+      lazy_html = LazyHTML.from_fragment(~S|<div id="empty"></div>|)
+      child_content = LazyHTML.from_fragment(~S|<p>First content</p>|)
+      
+      result = LazyHTML.appendChild(lazy_html, "#empty", child_content)
+      
+      assert LazyHTML.to_html(result) == ~S|<div id="empty"><p>First content</p></div>|
+    end
+
+    test "appends mixed content types" do
+      lazy_html = LazyHTML.from_fragment(~S|<section id="content"><h1>Title</h1></section>|)
+      child_content = LazyHTML.from_fragment(~S|<p>Paragraph</p><ul><li>List item</li></ul>|)
+      
+      result = LazyHTML.appendChild(lazy_html, "#content", child_content)
+      
+      assert LazyHTML.to_html(result) == ~S|<section id="content"><h1>Title</h1><p>Paragraph</p><ul><li>List item</li></ul></section>|
+    end
+
+    test "preserves existing children order" do
+      lazy_html = LazyHTML.from_fragment(~S|<div class="parent"><span>First</span><span>Second</span></div>|)
+      child_content = LazyHTML.from_fragment(~S|<span>Third</span>|)
+      
+      result = LazyHTML.appendChild(lazy_html, ".parent", child_content)
+      
+      assert LazyHTML.to_html(result) == ~S|<div class="parent"><span>First</span><span>Second</span><span>Third</span></div>|
+    end
+
+    test "raises when no elements match" do
+      lazy_html = LazyHTML.from_fragment(~S|<div><span>Content</span></div>|)
+      child_content = LazyHTML.from_fragment(~S|<p>Child content</p>|)
+      
+      assert_raise ArgumentError, "no elements found matching selector", fn ->
+        LazyHTML.appendChild(lazy_html, "#nonexistent", child_content)
+      end
+    end
+
+    test "raises when multiple elements match" do
+      lazy_html = LazyHTML.from_fragment(~S|<div><div class="target">First</div><div class="target">Second</div></div>|)
+      child_content = LazyHTML.from_fragment(~S|<p>Child content</p>|)
+      
+      assert_raise ArgumentError, ~r/expected exactly 1 element matching selector.*but found 2/, fn ->
+        LazyHTML.appendChild(lazy_html, ".target", child_content)
+      end
+    end
+
+    test "works with complex selectors" do
+      lazy_html = LazyHTML.from_fragment(~S|<article><div class="content main"><p>Existing</p></div><div class="content">Other</div></article>|)
+      child_content = LazyHTML.from_fragment(~S|<p>Appended to main</p>|)
+      
+      result = LazyHTML.appendChild(lazy_html, ".content.main", child_content)
+      
+      assert LazyHTML.to_html(result) == ~S|<article><div class="content main"><p>Existing</p><p>Appended to main</p></div><div class="content">Other</div></article>|
+    end
+
+    test "works with nested elements" do
+      lazy_html = LazyHTML.from_fragment(~S|<div><article><section id="target"><h2>Section</h2></section></article></div>|)
+      child_content = LazyHTML.from_fragment(~S|<p>New paragraph</p>|)
+      
+      result = LazyHTML.appendChild(lazy_html, "#target", child_content)
+      
+      assert LazyHTML.to_html(result) == ~S|<div><article><section id="target"><h2>Section</h2><p>New paragraph</p></section></article></div>|
+    end
+  end
+
   describe "query_by_id/2" do
     test "raises when an empty id is given" do
       assert_raise ArgumentError, ~r/id cannot be empty/, fn ->
