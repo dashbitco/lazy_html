@@ -4,7 +4,7 @@ defmodule LazyHTML.MixProject do
   # v2.5.0 + :lexbor-contains() feature
   @lexbor_git_sha "244b84956a6dc7eec293781d051354f351274c46"
 
-  @version "0.1.7-dev"
+  @version "0.1.7"
   @description "Efficient parsing and querying of HTML documents"
   @github_url "https://github.com/dashbitco/lazy_html"
 

@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.1.7](https://github.com/dashbitco/lazy_html/tree/v0.1.7) (2025-08-29)
+
+### Updated
+
+- Updated Lexbor version ([#21](https://github.com/dashbitco/lazy_html/pull/21))
+
 ## [v0.1.6](https://github.com/dashbitco/lazy_html/tree/v0.1.6) (2025-08-07)
 
 ### Fixed
