@@ -1,7 +1,8 @@
 defmodule LazyHTML.MixProject do
   use Mix.Project
 
-  @lexbor_version "2.4.0"
+  # v2.5.0 + :lexbor-contains() feature
+  @lexbor_git_sha "244b84956a6dc7eec293781d051354f351274c46"
 
   @version "0.1.7-dev"
   @description "Efficient parsing and querying of HTML documents"
@@ -21,7 +22,7 @@ defmodule LazyHTML.MixProject do
       make_env: fn ->
         %{
           "FINE_INCLUDE_DIR" => Fine.include_dir(),
-          "LEXBOR_VERSION" => @lexbor_version
+          "LEXBOR_GIT_SHA" => @lexbor_git_sha
         }
       end,
       # Precompilation
