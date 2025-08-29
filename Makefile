@@ -5,7 +5,7 @@ C_SRC := $(shell pwd)/c_src
 CPPFLAGS := -shared -fPIC -fvisibility=hidden -std=c++17 -Wall -Wextra -Wno-unused-parameter -Wno-comment
 CPPFLAGS += -I$(ERTS_INCLUDE_DIR) -I$(FINE_INCLUDE_DIR)
 
-LEXBOR_DIR := $(shell pwd)/_build/c/third_party/lexbor/$(LEXBOR_VERSION)
+LEXBOR_DIR := $(shell pwd)/_build/c/third_party/lexbor/$(LEXBOR_GIT_SHA)
 ifdef CC_PRECOMPILER_CURRENT_TARGET
 	LEXBOR_BUILD_DIR := $(LEXBOR_DIR)/build-$(CC_PRECOMPILER_CURRENT_TARGET)
 else
@@ -47,4 +47,7 @@ $(LEXBOR_LIB): $(LEXBOR_DIR)
 		cmake --build .
 
 $(LEXBOR_DIR):
-	@ git clone --depth 1 --branch v$(LEXBOR_VERSION) https://github.com/lexbor/lexbor.git $(LEXBOR_DIR)
+	@ git clone --depth 1 https://github.com/lexbor/lexbor.git $(LEXBOR_DIR) && \
+		cd $(LEXBOR_DIR) && \
+		git fetch --depth 1 origin $(LEXBOR_GIT_SHA) && \
+		git checkout $(LEXBOR_GIT_SHA)
