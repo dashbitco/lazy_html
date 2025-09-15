@@ -35,6 +35,14 @@ jobs:
             gcc-riscv64-linux-gnu g++-riscv64-linux-gnu \
             gcc-powerpc64le-linux-gnu g++-powerpc64le-linux-gnu \
             gcc-s390x-linux-gnu g++-s390x-linux-gnu
+      - name: Get musl cross-compilers
+        run: |
+          for musl_arch in x86_64 aarch64 riscv64; do
+            wget "https://musl.cc/${musl_arch}-linux-musl-cross.tgz" -O "${musl_arch}-linux-musl-cross.tgz"
+            tar -xf "${musl_arch}-linux-musl-cross.tgz"
+
+            echo "$(pwd)/${musl_arch}-linux-musl-cross/bin" >> $GITHUB_PATH
+          done
       - uses: erlef/setup-beam@v1
         with:
           otp-version: ${{ matrix.otp_version }}
