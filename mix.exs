@@ -41,7 +41,6 @@ defmodule LazyHTML.MixProject do
             "riscv64-linux-gnu" => "riscv64-linux-gnu-",
             "powerpc64le-linux-gnu" => "powerpc64le-linux-gnu-",
             "s390x-linux-gnu" => "s390x-linux-gnu-",
-
             "x86_64-linux-musl" => "x86_64-linux-musl-",
             "aarch64-linux-musl" => "aarch64-linux-musl-"
           },
