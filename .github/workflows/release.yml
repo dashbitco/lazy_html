@@ -28,7 +28,7 @@ jobs:
       - name: Install system dependencies
         run: |
           apt-get update
-          apt-get install -y curl git cmake \
+          apt-get install -y curl wget git cmake \
             build-essential automake autoconf cmake pkg-config bc m4 unzip zip \
             gcc g++ \
             gcc-i686-linux-gnu g++-i686-linux-gnu \
