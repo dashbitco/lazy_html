@@ -42,7 +42,7 @@ jobs:
           for musl_arch in x86_64 aarch64 riscv64; do
             # We use a musl.cc mirror, see https://github.com/orgs/community/discussions/27906.
             musl_cc_url="https://github.com/jonatanklosko/musl_cc_mirror/releases/download/20250915-100603"
-            wget "musl_cc_url/${musl_arch}-linux-musl-cross.tgz" -O "${musl_arch}-linux-musl-cross.tgz"
+            wget "${musl_cc_url}/${musl_arch}-linux-musl-cross.tgz" -O "${musl_arch}-linux-musl-cross.tgz"
             tar -xf "${musl_arch}-linux-musl-cross.tgz"
 
             echo "$(pwd)/${musl_arch}-linux-musl-cross/bin" >> $GITHUB_PATH
