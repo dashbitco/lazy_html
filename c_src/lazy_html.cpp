@@ -4,6 +4,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <tuple>
@@ -713,6 +714,25 @@ ExLazyHTML child_nodes(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
 }
 
 FINE_NIF(child_nodes, 0);
+
+ExLazyHTML parent_nodes(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
+  auto nodes = std::vector<lxb_dom_node_t *>();
+  auto inserted_nodes = std::set<lxb_dom_node_t *>();
+
+  for (auto node : ex_lazy_html.resource->nodes) {
+    auto parent = node->parent;
+    if (parent != NULL && parent->type == LXB_DOM_NODE_TYPE_ELEMENT) {
+      auto inserted_node = inserted_nodes.find(parent);
+      if (inserted_node == inserted_nodes.end()) {
+        inserted_nodes.insert(parent);
+        nodes.push_back(parent);
+      }
+    }
+  }
+  return ExLazyHTML(fine::make_resource<LazyHTML>(
+      ex_lazy_html.resource->document_ref, nodes, true));
+}
+FINE_NIF(parent_nodes, ERL_NIF_DIRTY_JOB_CPU_BOUND);
 
 std::string text(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
   auto document = ex_lazy_html.resource->document_ref->document;

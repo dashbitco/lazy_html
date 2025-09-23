@@ -358,6 +358,36 @@ defmodule LazyHTML do
   end
 
   @doc """
+  Returns the (unique) parent nodes of the root nodes in `lazy_html`.
+
+  ## Examples
+
+      iex> lazy_html = LazyHTML.from_fragment(~S|<div><span>Hello</span> <span>world</span></div>|)
+      iex> spans = LazyHTML.query(lazy_html, "span")
+      iex> LazyHTML.parent_nodes(spans)
+      #LazyHTML<
+        1 node (from selector)
+        #1
+        <div><span>Hello</span> <span>world</span></div>
+      >
+
+  The root node is always <html>, even if initialized via `from_fragment/1`:
+
+      iex> lazy_html = LazyHTML.from_fragment(~S|<div>root</div>|)
+      iex> LazyHTML.parent_nodes(lazy_html)
+      #LazyHTML<
+        1 node (from selector)
+        #1
+        <html><div>root</div></html>
+      >
+
+  """
+  @spec parent_nodes(t()) :: t()
+  def parent_nodes(lazy_html) do
+    LazyHTML.NIF.parent_nodes(lazy_html)
+  end
+
+  @doc """
   Returns the text content of all nodes in `lazy_html`.
 
   ## Examples

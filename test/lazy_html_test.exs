@@ -250,6 +250,60 @@ defmodule LazyHTMLTest do
     end
   end
 
+  describe "parent_nodes/1" do
+    test "from selector of nodes on different levels" do
+      lazy_html =
+        LazyHTML.from_fragment("""
+        <div id=0>
+          <div id=1>
+            <span>Hello</span>
+          </div>
+          <span>world</span>
+        </div>
+        """)
+
+      spans = LazyHTML.query(lazy_html, "span")
+      parents = LazyHTML.parent_nodes(spans)
+      parent_ids = parents |> Enum.flat_map(&LazyHTML.attribute(&1, "id")) |> Enum.sort()
+      assert parent_ids == ["0", "1"]
+
+      # parent of div#id=0 is <html>
+      grandparents = LazyHTML.parent_nodes(parents)
+      assert LazyHTML.tag(grandparents) |> Enum.sort() == ["div", "html"]
+
+      # parent of <html> is null, so it's filtered out
+      great_grandparents = LazyHTML.parent_nodes(grandparents)
+      assert great_grandparents |> Enum.count() == 1
+
+      # again, parent of <html> is filtered out
+      assert LazyHTML.parent_nodes(great_grandparents) |> Enum.count() == 0
+    end
+
+    test "from selector of nodes on same level" do
+      lazy_html =
+        LazyHTML.from_fragment("""
+        <div id=0>
+          <div id=1>
+            <span>Hello</span>
+          </div>
+          <div id=2>
+            <span>world</span>
+          </div>
+        </div>
+        """)
+
+      spans = LazyHTML.query(lazy_html, "span")
+      parents = LazyHTML.parent_nodes(spans)
+      parent_ids = parents |> Enum.flat_map(&LazyHTML.attribute(&1, "id")) |> Enum.sort()
+      assert parent_ids == ["1", "2"]
+
+      # since they share the same parent, we now only have one node left
+      grandparent = LazyHTML.parent_nodes(parents)
+      assert LazyHTML.attribute(grandparent, "id") == ["0"]
+    end
+
+  end
+
   describe "query_by_id/2" do
     test "raises when an empty id is given" do
       assert_raise ArgumentError, ~r/id cannot be empty/, fn ->
