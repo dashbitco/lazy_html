@@ -388,6 +388,30 @@ defmodule LazyHTML do
   end
 
   @doc """
+  Returns the parent nodes of the root nodes in `lazy_html`.
+  Useful when you're expecting a single, shared parent.
+  """
+  def parent_node(lazy_html) do
+    parent = LazyHTML.NIF.parent_nodes(lazy_html)
+
+    case LazyHTML.NIF.num_nodes(parent) do
+      0 -> {:ok, nil}
+      1 -> {:ok, parent}
+      _ -> {:error, :multiple_parents}
+    end
+  end
+
+  @doc """
+  Same as `parent_node/1` but raises on multiple parents
+  """
+  def parent_node!(lazy_html) do
+    case parent_node(lazy_html) do
+      {:ok, res} -> res
+      {:error, :multiple_parents} -> raise "Selected nodes have multiple parents"
+    end
+  end
+
+  @doc """
   Returns the text content of all nodes in `lazy_html`.
 
   ## Examples
