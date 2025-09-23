@@ -28,6 +28,7 @@ defmodule LazyHTML.NIF do
   def tag(_lazy_html), do: err!()
   def nodes(_lazy_html), do: err!()
   def num_nodes(_lazy_html), do: err!()
+  def equals(_lazy_html_a, _lazy_html_b), do: err!()
 
   defp err!(), do: :erlang.nif_error(:not_loaded)
 end

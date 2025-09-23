@@ -511,6 +511,29 @@ defmodule LazyHTML do
     LazyHTML.NIF.tag(lazy_html)
   end
 
+  @doc """
+  Returns true if the lazy_html is selecting the same nodes starting from the same document.
+
+  ## Examples
+
+    iex> lazy_html = LazyHTML.from_fragment(~S|<div><span id=1>Hello</span></div>|)
+    iex> a = LazyHTML.query(lazy_html, "#1")
+    iex> b = LazyHTML.query(lazy_html, "div > span")
+    iex> LazyHTML.equals?(a, b)
+    true
+
+  Note that if the lazy_htmls are created separately, they are never equal:
+
+    iex> html_a = LazyHTML.from_fragment(~S|<div>hello</div>|)
+    iex> html_b = LazyHTML.from_fragment(~S|<div>hello</div>|)
+    iex> LazyHTML.equals?(html_a, html_b)
+    false
+  """
+  @spec equals?(t(), t()) :: boolean()
+  def equals?(html_a, html_b) do
+    LazyHTML.NIF.equals(html_a, html_b)
+  end
+
   @doc ~S"""
   Escapes the given string to make a valid HTML text.
 
