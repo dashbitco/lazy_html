@@ -302,6 +302,42 @@ defmodule LazyHTMLTest do
       assert LazyHTML.attribute(grandparent, "id") == ["0"]
     end
 
+    defp get_css_path(node, acc) do
+      parent = LazyHTML.parent_node!(node)
+
+      if parent do
+        siblings =
+          LazyHTML.child_nodes(parent)
+          |> Enum.reject(fn n -> LazyHTML.tag(n) == [] end)
+
+        [tag] = LazyHTML.tag(node)
+        i = Enum.find_index(siblings, fn n -> LazyHTML.equals?(n, node) end)
+        get_css_path(parent, [{tag, i} | acc])
+      else
+        acc |> Enum.map_join(" > ", fn {tag, i} -> "#{tag}:nth-child(#{i + 1})" end)
+      end
+    end
+
+    test "construct nth-child selector by traversing parents" do
+      lazy_html =
+        LazyHTML.from_fragment("""
+        <div>
+          <div class="wibble">
+            <span>wibble</span>
+          </div>
+          <div class="wobble">
+            <span>wobble</span>
+          </div>
+        </div>
+        """)
+
+      span = LazyHTML.query(lazy_html, ".wobble span")
+      path = get_css_path(span, [])
+      assert path == "div:nth-child(1) > div:nth-child(2) > span:nth-child(1)"
+
+      span2 = LazyHTML.query(lazy_html, path)
+      assert LazyHTML.equals?(span, span2)
+    end
   end
 
   describe "query_by_id/2" do
