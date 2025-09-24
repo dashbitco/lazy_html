@@ -388,6 +388,23 @@ defmodule LazyHTML do
   end
 
   @doc """
+  Returns the positions of the selcted nodes among their siblings.
+  Note that the numbering is 1 based and doesn't include text nodes,
+  as it matches the `nth-child` CSS selector.
+
+  ## Examples
+
+      iex> lazy_html = LazyHTML.from_fragment(~S|<div><span>1</span><span>2</span></div>|)
+      iex> spans = LazyHTML.query(lazy_html, "span")
+      iex> LazyHTML.nth_child(spans)
+      [1, 2]
+  """
+  @spec nth_child(t()) :: list(integer())
+  def nth_child(lazy_html) do
+    LazyHTML.NIF.nth_child(lazy_html)
+  end
+
+  @doc """
   Returns the text content of all nodes in `lazy_html`.
 
   ## Examples

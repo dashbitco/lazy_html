@@ -341,6 +341,28 @@ defmodule LazyHTMLTest do
     end
   end
 
+  describe "nth_child/1" do
+    test "nth_child gives position" do
+      lazy_html =
+        LazyHTML.from_fragment("""
+        <div>
+          Text isn't counted.
+          <span>1</span>
+          <!-- neither are comments -->
+          <span>2</span>
+        </div>
+        """)
+
+      assert LazyHTML.nth_child(lazy_html) == [1]
+      assert lazy_html["div"] |> LazyHTML.nth_child() == [1]
+      assert lazy_html["span"] |> LazyHTML.nth_child() == [1, 2]
+
+      # Verify numbering matches css selector
+      assert lazy_html["span:nth-child(1)"] |> LazyHTML.text() == "1"
+      assert lazy_html["span:nth-child(2)"] |> LazyHTML.text() == "2"
+    end
+  end
+
   describe "query_by_id/2" do
     test "raises when an empty id is given" do
       assert_raise ArgumentError, ~r/id cannot be empty/, fn ->

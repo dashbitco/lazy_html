@@ -734,6 +734,36 @@ ExLazyHTML parent_node(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
 }
 FINE_NIF(parent_node, ERL_NIF_DIRTY_JOB_CPU_BOUND);
 
+std::vector<int64_t> nth_child(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
+  auto values = std::vector<int64_t>();
+  for (auto node : ex_lazy_html.resource->nodes) {
+    if (node->type != LXB_DOM_NODE_TYPE_ELEMENT) {
+      continue;
+    }
+
+    auto parent = node->parent;
+    if (parent == NULL) {
+      // We're at the root, nth_child is 1
+      values.push_back(1);
+    } else {
+      int64_t i = 1;
+      for (auto child = lxb_dom_node_first_child(parent); child != NULL;
+           child = lxb_dom_node_next(child)) {
+        if (child == node) {
+          break;
+        }
+        if (child->type == LXB_DOM_NODE_TYPE_ELEMENT) {
+          i++;
+        }
+      }
+      values.push_back(i);
+    }
+  }
+
+  return values;
+}
+FINE_NIF(nth_child, ERL_NIF_DIRTY_JOB_CPU_BOUND);
+
 std::string text(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
   auto document = ex_lazy_html.resource->document_ref->document;
 
