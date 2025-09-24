@@ -254,8 +254,8 @@ defmodule LazyHTMLTest do
     test "from selector of nodes on different levels" do
       lazy_html =
         LazyHTML.from_fragment("""
-        <div id=0>
-          <div id=1>
+        <div id="a">
+          <div id="b">
             <span>Hello</span>
           </div>
           <span>world</span>
@@ -265,9 +265,9 @@ defmodule LazyHTMLTest do
       spans = LazyHTML.query(lazy_html, "span")
       parents = LazyHTML.parent_node(spans)
       parent_ids = parents |> Enum.flat_map(&LazyHTML.attribute(&1, "id")) |> Enum.sort()
-      assert parent_ids == ["0", "1"]
+      assert parent_ids == ["a", "b"]
 
-      # parent of div#id=0 is <html>
+      # parent of div#id="a" is <html>
       grandparents = LazyHTML.parent_node(parents)
       assert LazyHTML.tag(grandparents) |> Enum.sort() == ["div", "html"]
 
@@ -282,11 +282,11 @@ defmodule LazyHTMLTest do
     test "from selector of nodes on same level" do
       lazy_html =
         LazyHTML.from_fragment("""
-        <div id=0>
-          <div id=1>
+        <div id="a">
+          <div id="b">
             <span>Hello</span>
           </div>
-          <div id=2>
+          <div id="c">
             <span>world</span>
           </div>
         </div>
@@ -295,11 +295,11 @@ defmodule LazyHTMLTest do
       spans = LazyHTML.query(lazy_html, "span")
       parents = LazyHTML.parent_node(spans)
       parent_ids = parents |> Enum.flat_map(&LazyHTML.attribute(&1, "id")) |> Enum.sort()
-      assert parent_ids == ["1", "2"]
+      assert parent_ids == ["b", "c"]
 
       # since they share the same parent, we now only have one node left
       grandparent = LazyHTML.parent_node(parents)
-      assert LazyHTML.attribute(grandparent, "id") == ["0"]
+      assert LazyHTML.attribute(grandparent, "id") == ["a"]
     end
 
     defp get_css_path(node, acc) do

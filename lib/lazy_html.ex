@@ -516,8 +516,8 @@ defmodule LazyHTML do
 
   ## Examples
 
-    iex> lazy_html = LazyHTML.from_fragment(~S|<div><span id=1>Hello</span></div>|)
-    iex> a = LazyHTML.query(lazy_html, "#1")
+    iex> lazy_html = LazyHTML.from_fragment(~S|<div><span id="a">Hello</span></div>|)
+    iex> a = LazyHTML.query(lazy_html, "#a")
     iex> b = LazyHTML.query(lazy_html, "div > span")
     iex> LazyHTML.equals?(a, b)
     true
