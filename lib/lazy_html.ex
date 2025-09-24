@@ -364,7 +364,7 @@ defmodule LazyHTML do
 
       iex> lazy_html = LazyHTML.from_fragment(~S|<div><span>Hello</span> <span>world</span></div>|)
       iex> spans = LazyHTML.query(lazy_html, "span")
-      iex> LazyHTML.parent_nodes(spans)
+      iex> LazyHTML.parent_node(spans)
       #LazyHTML<
         1 node (from selector)
         #1
@@ -374,7 +374,7 @@ defmodule LazyHTML do
   The root node is always <html>, even if initialized via `from_fragment/1`:
 
       iex> lazy_html = LazyHTML.from_fragment(~S|<div>root</div>|)
-      iex> LazyHTML.parent_nodes(lazy_html)
+      iex> LazyHTML.parent_node(lazy_html)
       #LazyHTML<
         1 node (from selector)
         #1
@@ -382,33 +382,9 @@ defmodule LazyHTML do
       >
 
   """
-  @spec parent_nodes(t()) :: t()
-  def parent_nodes(lazy_html) do
-    LazyHTML.NIF.parent_nodes(lazy_html)
-  end
-
-  @doc """
-  Returns the parent nodes of the root nodes in `lazy_html`.
-  Useful when you're expecting a single, shared parent.
-  """
+  @spec parent_node(t()) :: t()
   def parent_node(lazy_html) do
-    parent = LazyHTML.NIF.parent_nodes(lazy_html)
-
-    case LazyHTML.NIF.num_nodes(parent) do
-      0 -> {:ok, nil}
-      1 -> {:ok, parent}
-      _ -> {:error, :multiple_parents}
-    end
-  end
-
-  @doc """
-  Same as `parent_node/1` but raises on multiple parents
-  """
-  def parent_node!(lazy_html) do
-    case parent_node(lazy_html) do
-      {:ok, res} -> res
-      {:error, :multiple_parents} -> raise "Selected nodes have multiple parents"
-    end
+    LazyHTML.NIF.parent_node(lazy_html)
   end
 
   @doc """

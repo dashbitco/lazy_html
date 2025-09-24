@@ -250,7 +250,7 @@ defmodule LazyHTMLTest do
     end
   end
 
-  describe "parent_nodes/1" do
+  describe "parent_node/1" do
     test "from selector of nodes on different levels" do
       lazy_html =
         LazyHTML.from_fragment("""
@@ -263,20 +263,20 @@ defmodule LazyHTMLTest do
         """)
 
       spans = LazyHTML.query(lazy_html, "span")
-      parents = LazyHTML.parent_nodes(spans)
+      parents = LazyHTML.parent_node(spans)
       parent_ids = parents |> Enum.flat_map(&LazyHTML.attribute(&1, "id")) |> Enum.sort()
       assert parent_ids == ["0", "1"]
 
       # parent of div#id=0 is <html>
-      grandparents = LazyHTML.parent_nodes(parents)
+      grandparents = LazyHTML.parent_node(parents)
       assert LazyHTML.tag(grandparents) |> Enum.sort() == ["div", "html"]
 
       # parent of <html> is null, so it's filtered out
-      great_grandparents = LazyHTML.parent_nodes(grandparents)
+      great_grandparents = LazyHTML.parent_node(grandparents)
       assert great_grandparents |> Enum.count() == 1
 
       # again, parent of <html> is filtered out
-      assert LazyHTML.parent_nodes(great_grandparents) |> Enum.count() == 0
+      assert LazyHTML.parent_node(great_grandparents) |> Enum.count() == 0
     end
 
     test "from selector of nodes on same level" do
@@ -293,19 +293,20 @@ defmodule LazyHTMLTest do
         """)
 
       spans = LazyHTML.query(lazy_html, "span")
-      parents = LazyHTML.parent_nodes(spans)
+      parents = LazyHTML.parent_node(spans)
       parent_ids = parents |> Enum.flat_map(&LazyHTML.attribute(&1, "id")) |> Enum.sort()
       assert parent_ids == ["1", "2"]
 
       # since they share the same parent, we now only have one node left
-      grandparent = LazyHTML.parent_nodes(parents)
+      grandparent = LazyHTML.parent_node(parents)
       assert LazyHTML.attribute(grandparent, "id") == ["0"]
     end
 
     defp get_css_path(node, acc) do
-      parent = LazyHTML.parent_node!(node)
+      1 = Enum.count(node)
+      parent = LazyHTML.parent_node(node)
 
-      if parent do
+      if Enum.count(parent) > 0 do
         siblings =
           LazyHTML.child_nodes(parent)
           |> Enum.reject(fn n -> LazyHTML.tag(n) == [] end)

@@ -715,7 +715,7 @@ ExLazyHTML child_nodes(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
 
 FINE_NIF(child_nodes, 0);
 
-ExLazyHTML parent_nodes(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
+ExLazyHTML parent_node(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
   auto nodes = std::vector<lxb_dom_node_t *>();
   auto inserted_nodes = std::set<lxb_dom_node_t *>();
 
@@ -732,7 +732,7 @@ ExLazyHTML parent_nodes(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
   return ExLazyHTML(fine::make_resource<LazyHTML>(
       ex_lazy_html.resource->document_ref, nodes, true));
 }
-FINE_NIF(parent_nodes, ERL_NIF_DIRTY_JOB_CPU_BOUND);
+FINE_NIF(parent_node, ERL_NIF_DIRTY_JOB_CPU_BOUND);
 
 std::string text(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
   auto document = ex_lazy_html.resource->document_ref->document;
