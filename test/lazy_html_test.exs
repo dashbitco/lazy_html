@@ -307,15 +307,11 @@ defmodule LazyHTMLTest do
       parent = LazyHTML.parent_node(node)
 
       if Enum.count(parent) > 0 do
-        siblings =
-          LazyHTML.child_nodes(parent)
-          |> Enum.reject(fn n -> LazyHTML.tag(n) == [] end)
-
         [tag] = LazyHTML.tag(node)
-        i = Enum.find_index(siblings, fn n -> LazyHTML.equals?(n, node) end)
+        [i] = LazyHTML.nth_child(node)
         get_css_path(parent, [{tag, i} | acc])
       else
-        acc |> Enum.map_join(" > ", fn {tag, i} -> "#{tag}:nth-child(#{i + 1})" end)
+        acc |> Enum.map_join(" > ", fn {tag, i} -> "#{tag}:nth-child(#{i})" end)
       end
     end
 
