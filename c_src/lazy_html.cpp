@@ -4,10 +4,10 @@
 #include <functional>
 #include <memory>
 #include <optional>
-#include <set>
 #include <stdexcept>
 #include <string>
 #include <tuple>
+#include <unordered_set>
 #include <variant>
 
 #include <lexbor/html/html.h>
@@ -717,7 +717,7 @@ FINE_NIF(child_nodes, 0);
 
 ExLazyHTML parent_node(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
   auto nodes = std::vector<lxb_dom_node_t *>();
-  auto inserted_nodes = std::set<lxb_dom_node_t *>();
+  auto inserted_nodes = std::unordered_set<lxb_dom_node_t *>();
 
   for (auto node : ex_lazy_html.resource->nodes) {
     auto parent = node->parent;
