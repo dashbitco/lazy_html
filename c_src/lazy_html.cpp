@@ -852,12 +852,6 @@ std::uint64_t num_nodes(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
 
 FINE_NIF(num_nodes, 0);
 
-bool equals(ErlNifEnv *env, ExLazyHTML html_a, ExLazyHTML html_b) {
-  return (html_a.resource->document_ref == html_b.resource->document_ref &&
-          html_a.resource->nodes == html_b.resource->nodes);
-}
-FINE_NIF(equals, 0);
-
 std::vector<fine::Term> tag(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
   auto values = std::vector<fine::Term>();
 

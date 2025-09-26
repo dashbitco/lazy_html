@@ -333,7 +333,7 @@ defmodule LazyHTMLTest do
       assert path == "div:nth-child(1) > div:nth-child(2) > span:nth-child(1)"
 
       span2 = LazyHTML.query(lazy_html, path)
-      assert LazyHTML.equals?(span, span2)
+      assert LazyHTML.text(span) == LazyHTML.text(span2)
     end
   end
 
