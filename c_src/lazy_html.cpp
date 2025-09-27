@@ -44,8 +44,10 @@ auto resource = fine::Atom("resource");
 
 struct DocumentRef {
   lxb_html_document_t *document;
+  bool is_fragment;
 
-  DocumentRef(lxb_html_document_t *document) : document(document) {}
+  DocumentRef(lxb_html_document_t *document, bool is_fragment)
+      : document(document), is_fragment(is_fragment) {}
 
   ~DocumentRef() { lxb_html_document_destroy(this->document); }
 };
@@ -98,7 +100,7 @@ ExLazyHTML from_document(ErlNifEnv *env, ErlNifBinary html) {
     throw std::runtime_error("failed to parse html document");
   }
 
-  auto document_ref = std::make_shared<DocumentRef>(document);
+  auto document_ref = std::make_shared<DocumentRef>(document, false);
   document_guard.deactivate();
 
   auto nodes = std::vector<lxb_dom_node_t *>();
@@ -130,7 +132,7 @@ ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html) {
     throw std::runtime_error("failed to parse html fragment");
   }
 
-  auto document_ref = std::make_shared<DocumentRef>(document);
+  auto document_ref = std::make_shared<DocumentRef>(document, true);
   document_guard.deactivate();
 
   auto nodes = std::vector<lxb_dom_node_t *>();
@@ -523,7 +525,12 @@ ExLazyHTML from_tree(ErlNifEnv *env, std::vector<fine::Term> tree) {
     nodes.push_back(node);
   }
 
-  auto document_ref = std::make_shared<DocumentRef>(document);
+  bool is_fragment = true;
+  if (!nodes.empty() && lxb_html_tree_node_is(nodes.front(), LXB_TAG_HTML)) {
+    is_fragment = false;
+  }
+
+  auto document_ref = std::make_shared<DocumentRef>(document, is_fragment);
   document_guard.deactivate();
 
   return ExLazyHTML(fine::make_resource<LazyHTML>(document_ref, nodes, false));
@@ -716,12 +723,14 @@ ExLazyHTML child_nodes(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
 FINE_NIF(child_nodes, 0);
 
 ExLazyHTML parent_node(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
+  bool is_document = !ex_lazy_html.resource->document_ref->is_fragment;
   auto nodes = std::vector<lxb_dom_node_t *>();
   auto inserted_nodes = std::unordered_set<lxb_dom_node_t *>();
 
   for (auto node : ex_lazy_html.resource->nodes) {
-    auto parent = node->parent;
-    if (parent != NULL && parent->type == LXB_DOM_NODE_TYPE_ELEMENT) {
+    auto parent = lxb_dom_node_parent(node);
+    if (parent != NULL && parent->type == LXB_DOM_NODE_TYPE_ELEMENT &&
+        (is_document || !lxb_html_tree_node_is(parent, LXB_TAG_HTML))) {
       auto inserted_node = inserted_nodes.find(parent);
       if (inserted_node == inserted_nodes.end()) {
         inserted_nodes.insert(parent);
@@ -741,7 +750,7 @@ std::vector<int64_t> nth_child(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
       continue;
     }
 
-    auto parent = node->parent;
+    auto parent = lxb_dom_node_parent(node);
     if (parent == NULL) {
       // We're at the root, nth_child is 1
       values.push_back(1);

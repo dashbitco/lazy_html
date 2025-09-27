@@ -371,16 +371,6 @@ defmodule LazyHTML do
         <div><span>Hello</span> <span>world</span></div>
       >
 
-  The root node is always <html>, even if initialized via `from_fragment/1`:
-
-      iex> lazy_html = LazyHTML.from_fragment(~S|<div>root</div>|)
-      iex> LazyHTML.parent_node(lazy_html)
-      #LazyHTML<
-        1 node (from selector)
-        #1
-        <html><div>root</div></html>
-      >
-
   """
   @spec parent_node(t()) :: t()
   def parent_node(lazy_html) do

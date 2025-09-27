@@ -267,16 +267,12 @@ defmodule LazyHTMLTest do
       parent_ids = parents |> Enum.flat_map(&LazyHTML.attribute(&1, "id")) |> Enum.sort()
       assert parent_ids == ["a", "b"]
 
-      # parent of div#id="a" is <html>
+      # parent of div#id="a" is null
       grandparents = LazyHTML.parent_node(parents)
-      assert LazyHTML.tag(grandparents) |> Enum.sort() == ["div", "html"]
+      assert LazyHTML.tag(grandparents) == ["div"]
 
-      # parent of <html> is null, so it's filtered out
       great_grandparents = LazyHTML.parent_node(grandparents)
-      assert great_grandparents |> Enum.count() == 1
-
-      # again, parent of <html> is filtered out
-      assert LazyHTML.parent_node(great_grandparents) |> Enum.count() == 0
+      assert great_grandparents |> Enum.count() == 0
     end
 
     test "from selector of nodes on same level" do
@@ -302,16 +298,39 @@ defmodule LazyHTMLTest do
       assert LazyHTML.attribute(grandparent, "id") == ["a"]
     end
 
+    defp parents(node) do
+      if Enum.count(node) == 0 do
+        []
+      else
+        tag = LazyHTML.tag(node)
+        parents(LazyHTML.parent_node(node)) ++ tag
+      end
+    end
+
+    test "last parent node is <html> if instantiated via from_document and similar" do
+      lazy_html = LazyHTML.from_document("<html><body><div>root</div></body></html>")
+      assert parents(lazy_html["div"]) == ["html", "body", "div"]
+
+      lazy_html = LazyHTML.from_fragment("<div>root</div>")
+      assert parents(lazy_html["div"]) == ["div"]
+
+      lazy_html = LazyHTML.from_tree([{"div", [], []}])
+      assert parents(lazy_html["div"]) == ["div"]
+
+      lazy_html = LazyHTML.from_tree([{"html", [], [{"body", [], [{"div", [], []}]}]}])
+      assert parents(lazy_html["div"]) == ["html", "body", "div"]
+    end
+
     defp get_css_path(node, acc) do
       1 = Enum.count(node)
       parent = LazyHTML.parent_node(node)
+      [tag] = LazyHTML.tag(node)
+      [i] = LazyHTML.nth_child(node)
 
       if Enum.count(parent) > 0 do
-        [tag] = LazyHTML.tag(node)
-        [i] = LazyHTML.nth_child(node)
         get_css_path(parent, [{tag, i} | acc])
       else
-        acc |> Enum.map_join(" > ", fn {tag, i} -> "#{tag}:nth-child(#{i})" end)
+        [{tag, i} | acc] |> Enum.map_join(" > ", fn {tag, i} -> "#{tag}:nth-child(#{i})" end)
       end
     end
 
