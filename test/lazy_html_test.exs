@@ -264,7 +264,7 @@ defmodule LazyHTMLTest do
 
       spans = LazyHTML.query(lazy_html, "span")
       parents = LazyHTML.parent_node(spans)
-      parent_ids = parents |> Enum.flat_map(&LazyHTML.attribute(&1, "id")) |> Enum.sort()
+      parent_ids = parents |> LazyHTML.attribute("id") |> Enum.sort()
       assert parent_ids == ["a", "b"]
 
       # parent of div#id="a" is null
@@ -290,7 +290,7 @@ defmodule LazyHTMLTest do
 
       spans = LazyHTML.query(lazy_html, "span")
       parents = LazyHTML.parent_node(spans)
-      parent_ids = parents |> Enum.flat_map(&LazyHTML.attribute(&1, "id")) |> Enum.sort()
+      parent_ids = parents |> LazyHTML.attribute("id") |> Enum.sort()
       assert parent_ids == ["b", "c"]
 
       # since they share the same parent, we now only have one node left
