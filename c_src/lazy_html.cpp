@@ -525,10 +525,8 @@ ExLazyHTML from_tree(ErlNifEnv *env, std::vector<fine::Term> tree) {
     nodes.push_back(node);
   }
 
-  bool is_fragment = true;
-  if (!nodes.empty() && lxb_html_tree_node_is(nodes.front(), LXB_TAG_HTML)) {
-    is_fragment = false;
-  }
+  bool is_fragment =
+      nodes.empty() || !lxb_html_tree_node_is(nodes.front(), LXB_TAG_HTML);
 
   auto document_ref = std::make_shared<DocumentRef>(document, is_fragment);
   document_guard.deactivate();
