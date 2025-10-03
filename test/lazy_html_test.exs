@@ -250,6 +250,101 @@ defmodule LazyHTMLTest do
     end
   end
 
+  describe "parent_node/1" do
+    test "from selector of nodes on different levels" do
+      lazy_html =
+        LazyHTML.from_fragment("""
+        <div id="a">
+          <div id="b">
+            <span>Hello</span>
+          </div>
+          <span>world</span>
+        </div>
+        """)
+
+      spans = LazyHTML.query(lazy_html, "span")
+      parents = LazyHTML.parent_node(spans)
+      parent_ids = parents |> LazyHTML.attribute("id") |> Enum.sort()
+      assert parent_ids == ["a", "b"]
+
+      # parent of div#id="a" is null
+      grandparents = LazyHTML.parent_node(parents)
+      assert LazyHTML.tag(grandparents) == ["div"]
+
+      great_grandparents = LazyHTML.parent_node(grandparents)
+      assert great_grandparents |> Enum.count() == 0
+    end
+
+    test "from selector of nodes on same level" do
+      lazy_html =
+        LazyHTML.from_fragment("""
+        <div id="a">
+          <div id="b">
+            <span>Hello</span>
+          </div>
+          <div id="c">
+            <span>world</span>
+          </div>
+        </div>
+        """)
+
+      spans = LazyHTML.query(lazy_html, "span")
+      parents = LazyHTML.parent_node(spans)
+      parent_ids = parents |> LazyHTML.attribute("id") |> Enum.sort()
+      assert parent_ids == ["b", "c"]
+
+      # since they share the same parent, we now only have one node left
+      grandparent = LazyHTML.parent_node(parents)
+      assert LazyHTML.attribute(grandparent, "id") == ["a"]
+    end
+
+    defp ancestor_chain(node) do
+      parent = LazyHTML.parent_node(node)
+
+      if Enum.count(node) == 0 do
+        []
+      else
+        ancestor_chain(parent) ++ LazyHTML.tag(parent)
+      end
+    end
+
+    test "last parent node is <html> if instantiated via from_document and similar" do
+      lazy_html = LazyHTML.from_document("<html><body><div>root</div></body></html>")
+      assert lazy_html |> LazyHTML.query("div") |> ancestor_chain() == ["html", "body"]
+
+      lazy_html = LazyHTML.from_fragment("<div>root</div>")
+      assert lazy_html |> LazyHTML.query("div") |> ancestor_chain() == []
+
+      lazy_html = LazyHTML.from_tree([{"div", [], []}])
+      assert lazy_html |> LazyHTML.query("div") |> ancestor_chain() == []
+
+      lazy_html = LazyHTML.from_tree([{"html", [], [{"body", [], [{"div", [], []}]}]}])
+      assert lazy_html |> LazyHTML.query("div") |> ancestor_chain() == ["html", "body"]
+    end
+  end
+
+  describe "nth_child/1" do
+    test "nth_child gives position" do
+      lazy_html =
+        LazyHTML.from_fragment("""
+        <div>
+          Text isn't counted.
+          <span>1</span>
+          <!-- neither are comments -->
+          <span>2</span>
+        </div>
+        """)
+
+      assert LazyHTML.nth_child(lazy_html) == [1]
+      assert lazy_html["div"] |> LazyHTML.nth_child() == [1]
+      assert lazy_html["span"] |> LazyHTML.nth_child() == [1, 2]
+
+      # Verify numbering matches css selector
+      assert lazy_html["span:nth-child(1)"] |> LazyHTML.text() == "1"
+      assert lazy_html["span:nth-child(2)"] |> LazyHTML.text() == "2"
+    end
+  end
+
   describe "query_by_id/2" do
     test "raises when an empty id is given" do
       assert_raise ArgumentError, ~r/id cannot be empty/, fn ->

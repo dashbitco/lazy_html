@@ -358,6 +358,48 @@ defmodule LazyHTML do
   end
 
   @doc """
+  Returns the (unique) parent nodes of the root nodes in `lazy_html`.
+
+  ## Examples
+
+      iex> lazy_html = LazyHTML.from_fragment(~S|<div><span>Hello</span> <span>world</span></div>|)
+      iex> spans = LazyHTML.query(lazy_html, "span")
+      iex> LazyHTML.parent_node(spans)
+      #LazyHTML<
+        1 node (from selector)
+        #1
+        <div><span>Hello</span> <span>world</span></div>
+      >
+
+  """
+  @spec parent_node(t()) :: t()
+  def parent_node(lazy_html) do
+    LazyHTML.NIF.parent_node(lazy_html)
+  end
+
+  @doc """
+  Returns the position among its siblings for every root element in `lazy_html`.
+
+  The position numbering is 1-based and only considers siblings that
+  are elements, as to match the `:nth-child` CSS pseudo-class.
+
+  Note that if there are text or comment root nodes, they are ignored,
+  and they have no corresponding number in the result.
+
+  ## Examples
+
+      iex> lazy_html = LazyHTML.from_fragment(~S|<div><span>1</span><span>2</span></div>|)
+      iex> spans = LazyHTML.query(lazy_html, "span")
+      iex> LazyHTML.nth_child(spans)
+      [1, 2]
+
+  """
+  @spec nth_child(t()) :: list(integer())
+  def nth_child(lazy_html) do
+    LazyHTML.NIF.nth_child(lazy_html)
+  end
+
+  @doc """
   Returns the text content of all nodes in `lazy_html`.
 
   ## Examples
