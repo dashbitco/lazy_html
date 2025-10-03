@@ -378,9 +378,13 @@ defmodule LazyHTML do
   end
 
   @doc """
-  Returns the positions of the selcted nodes among their siblings.
-  Note that the numbering is 1 based and doesn't include text nodes,
-  as it matches the `nth-child` CSS selector.
+  Returns the position among its siblings for every root element in `lazy_html`.
+
+  The position numbering is 1-based and only considers siblings that
+  are elements, as to match the `:nth-child` CSS pseudo-class.
+
+  Note that if there are text or comment root nodes, they are ignored,
+  and they have no corresponding number in the result.
 
   ## Examples
 
@@ -388,6 +392,7 @@ defmodule LazyHTML do
       iex> spans = LazyHTML.query(lazy_html, "span")
       iex> LazyHTML.nth_child(spans)
       [1, 2]
+
   """
   @spec nth_child(t()) :: list(integer())
   def nth_child(lazy_html) do
