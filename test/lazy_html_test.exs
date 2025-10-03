@@ -299,25 +299,27 @@ defmodule LazyHTMLTest do
     end
 
     defp ancestor_chain(node) do
+      parent = LazyHTML.parent_node(node)
+
       if Enum.count(node) == 0 do
         []
       else
-        ancestor_chain(LazyHTML.parent_node(node)) ++ LazyHTML.tag(node)
+        ancestor_chain(parent) ++ LazyHTML.tag(parent)
       end
     end
 
     test "last parent node is <html> if instantiated via from_document and similar" do
       lazy_html = LazyHTML.from_document("<html><body><div>root</div></body></html>")
-      assert lazy_html |> LazyHTML.query("div") |> ancestor_chain() == ["html", "body", "div"]
+      assert lazy_html |> LazyHTML.query("div") |> ancestor_chain() == ["html", "body"]
 
       lazy_html = LazyHTML.from_fragment("<div>root</div>")
-      assert lazy_html |> LazyHTML.query("div") |> ancestor_chain() == ["div"]
+      assert lazy_html |> LazyHTML.query("div") |> ancestor_chain() == []
 
       lazy_html = LazyHTML.from_tree([{"div", [], []}])
-      assert lazy_html |> LazyHTML.query("div") |> ancestor_chain() == ["div"]
+      assert lazy_html |> LazyHTML.query("div") |> ancestor_chain() == []
 
       lazy_html = LazyHTML.from_tree([{"html", [], [{"body", [], [{"div", [], []}]}]}])
-      assert lazy_html |> LazyHTML.query("div") |> ancestor_chain() == ["html", "body", "div"]
+      assert lazy_html |> LazyHTML.query("div") |> ancestor_chain() == ["html", "body"]
     end
   end
 
