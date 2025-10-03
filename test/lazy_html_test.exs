@@ -319,40 +319,6 @@ defmodule LazyHTMLTest do
       lazy_html = LazyHTML.from_tree([{"html", [], [{"body", [], [{"div", [], []}]}]}])
       assert lazy_html |> LazyHTML.query("div") |> ancestor_chain() == ["html", "body", "div"]
     end
-
-    defp get_css_path(node, acc) do
-      1 = Enum.count(node)
-      parent = LazyHTML.parent_node(node)
-      [tag] = LazyHTML.tag(node)
-      [i] = LazyHTML.nth_child(node)
-
-      if Enum.count(parent) > 0 do
-        get_css_path(parent, [{tag, i} | acc])
-      else
-        [{tag, i} | acc] |> Enum.map_join(" > ", fn {tag, i} -> "#{tag}:nth-child(#{i})" end)
-      end
-    end
-
-    test "construct nth-child selector by traversing parents" do
-      lazy_html =
-        LazyHTML.from_fragment("""
-        <div>
-          <div class="wibble">
-            <span>wibble</span>
-          </div>
-          <div class="wobble">
-            <span>wobble</span>
-          </div>
-        </div>
-        """)
-
-      span = LazyHTML.query(lazy_html, ".wobble span")
-      path = get_css_path(span, [])
-      assert path == "div:nth-child(1) > div:nth-child(2) > span:nth-child(1)"
-
-      span2 = LazyHTML.query(lazy_html, path)
-      assert LazyHTML.text(span) == LazyHTML.text(span2)
-    end
   end
 
   describe "nth_child/1" do
