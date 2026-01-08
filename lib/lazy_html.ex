@@ -496,7 +496,7 @@ defmodule LazyHTML do
       ]
 
   '''
-  @spec attributes(t()) :: list({String.t(), String.t()})
+  @spec attributes(t()) :: list(list({String.t(), String.t()}))
   def attributes(%LazyHTML{} = lazy_html) do
     LazyHTML.NIF.attributes(lazy_html)
   end
