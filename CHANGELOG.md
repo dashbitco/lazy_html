@@ -8,11 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- `LazyHTML.parent_node/1` and `LazyHTML.nth_child/1` (#25)
+- `LazyHTML.parent_node/1` and `LazyHTML.nth_child/1` ([#25](https://github.com/dashbitco/lazy_html/pull/25))
 
 ### Fixed
 
-- Segmentation fault when calling `LazyHTML.from_tree/1` with highly nested trees (#30)
+- Segmentation fault when calling `LazyHTML.from_tree/1` with highly nested trees ([#30](https://github.com/dashbitco/lazy_html/pull/30))
 
 ## [v0.1.8](https://github.com/dashbitco/lazy_html/tree/v0.1.8) (2025-09-15)
 
