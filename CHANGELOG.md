@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.1.10](https://github.com/dashbitco/lazy_html/tree/v0.1.10) (2026-02-09)
+
+### Fixed
+
+- `LazyHTML.query/2` and `LazyHTML.query_by_id/2` returning duplicate nodes ([#31](https://github.com/dashbitco/lazy_html/pull/31))
+
 ## [v0.1.9](https://github.com/dashbitco/lazy_html/tree/v0.1.9) (2026-02-09)
 
 ### Added
