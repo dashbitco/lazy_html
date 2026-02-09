@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.1.9](https://github.com/dashbitco/lazy_html/tree/v0.1.9) (2026-02-09)
+
+### Added
+
+- `LazyHTML.parent_node/1` and `LazyHTML.nth_child/1` (#25)
+
+### Fixed
+
+- Segmentation fault when calling `LazyHTML.from_tree/1` with highly nested trees (#30)
+
 ## [v0.1.8](https://github.com/dashbitco/lazy_html/tree/v0.1.8) (2025-09-15)
 
 ### Added
