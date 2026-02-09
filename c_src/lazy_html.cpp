@@ -10,10 +10,10 @@
 #include <unordered_set>
 #include <variant>
 
-#include <lexbor/html/html.h>
 #include <lexbor/css/css.h>
-#include <lexbor/selectors/selectors.h>
 #include <lexbor/dom/dom.h>
+#include <lexbor/html/html.h>
+#include <lexbor/selectors/selectors.h>
 
 namespace lazy_html {
 
@@ -243,69 +243,108 @@ lxb_dom_node_t *template_aware_first_child(lxb_dom_node_t *node) {
 
 void append_node_html(lxb_dom_node_t *node, bool skip_whitespace_nodes,
                       std::string &html) {
-  if (node->type == LXB_DOM_NODE_TYPE_TEXT) {
-    auto character_data = lxb_dom_interface_character_data(node);
+  // We use an explicit stack instead of recursion to avoid stack
+  // overflow on deeply nested trees.
+  struct StackFrame {
+    lxb_dom_node_t *next_child;
+    std::string closing_tag;
+  };
 
-    auto whitespace_size = leading_whitespace_size(character_data->data.data,
-                                                   character_data->data.length);
+  std::vector<StackFrame> stack;
 
-    if (whitespace_size == character_data->data.length &&
-        skip_whitespace_nodes) {
-      // Append nothing
-    } else {
-      if (is_noescape_text_node(node)) {
-        html.append(reinterpret_cast<char *>(character_data->data.data),
-                    character_data->data.length);
+  auto current = node;
+
+  while (true) {
+    if (current->type == LXB_DOM_NODE_TYPE_TEXT) {
+      auto character_data = lxb_dom_interface_character_data(current);
+
+      auto whitespace_size = leading_whitespace_size(
+          character_data->data.data, character_data->data.length);
+
+      if (whitespace_size == character_data->data.length &&
+          skip_whitespace_nodes) {
+        // Append nothing
       } else {
-        append_escaping(html, character_data->data.data,
-                        character_data->data.length, whitespace_size);
+        if (is_noescape_text_node(current)) {
+          html.append(reinterpret_cast<char *>(character_data->data.data),
+                      character_data->data.length);
+        } else {
+          append_escaping(html, character_data->data.data,
+                          character_data->data.length, whitespace_size);
+        }
       }
-    }
-  } else if (node->type == LXB_DOM_NODE_TYPE_COMMENT) {
-    auto character_data = lxb_dom_interface_character_data(node);
-    html.append("<!--");
-    html.append(reinterpret_cast<char *>(character_data->data.data),
-                character_data->data.length);
-    html.append("-->");
-  } else if (node->type == LXB_DOM_NODE_TYPE_ELEMENT) {
-    auto element = lxb_dom_interface_element(node);
-    size_t name_length;
-    auto name = lxb_dom_element_qualified_name(element, &name_length);
-    if (name == NULL) {
-      throw std::runtime_error("failed to read tag name");
-    }
-    html.append("<");
-    html.append(reinterpret_cast<const char *>(name), name_length);
-
-    for (auto attribute = lxb_dom_element_first_attribute(element);
-         attribute != NULL;
-         attribute = lxb_dom_element_next_attribute(attribute)) {
-      html.append(" ");
-
+    } else if (current->type == LXB_DOM_NODE_TYPE_COMMENT) {
+      auto character_data = lxb_dom_interface_character_data(current);
+      html.append("<!--");
+      html.append(reinterpret_cast<char *>(character_data->data.data),
+                  character_data->data.length);
+      html.append("-->");
+    } else if (current->type == LXB_DOM_NODE_TYPE_ELEMENT) {
+      auto element = lxb_dom_interface_element(current);
       size_t name_length;
-      auto name = lxb_dom_attr_qualified_name(attribute, &name_length);
+      auto name = lxb_dom_element_qualified_name(element, &name_length);
+      if (name == NULL) {
+        throw std::runtime_error("failed to read tag name");
+      }
+      html.append("<");
       html.append(reinterpret_cast<const char *>(name), name_length);
 
-      html.append("=\"");
+      for (auto attribute = lxb_dom_element_first_attribute(element);
+           attribute != NULL;
+           attribute = lxb_dom_element_next_attribute(attribute)) {
+        html.append(" ");
 
-      size_t value_length;
-      auto value = lxb_dom_attr_value(attribute, &value_length);
-      append_escaping(html, value, value_length);
+        size_t name_length;
+        auto name = lxb_dom_attr_qualified_name(attribute, &name_length);
+        html.append(reinterpret_cast<const char *>(name), name_length);
 
-      html.append("\"");
+        html.append("=\"");
+
+        size_t value_length;
+        auto value = lxb_dom_attr_value(attribute, &value_length);
+        append_escaping(html, value, value_length);
+
+        html.append("\"");
+      }
+
+      if (lxb_html_node_is_void(current)) {
+        html.append("/>");
+      } else {
+        html.append(">");
+
+        auto closing = std::string("</");
+        closing.append(reinterpret_cast<const char *>(name), name_length);
+        closing.append(">");
+
+        auto first_child = template_aware_first_child(current);
+
+        if (first_child == nullptr) {
+          html.append(closing);
+        } else {
+          stack.push_back({lxb_dom_node_next(first_child), std::move(closing)});
+          // Immediately process the child.
+          current = first_child;
+          continue;
+        }
+      }
     }
 
-    if (lxb_html_node_is_void(node)) {
-      html.append("/>");
-    } else {
-      html.append(">");
-      for (auto child = template_aware_first_child(node); child != NULL;
-           child = lxb_dom_node_next(child)) {
-        append_node_html(child, skip_whitespace_nodes, html);
+    // Advance to the next sibling, or pop frames until we find one.
+    while (!stack.empty()) {
+      auto &frame = stack.back();
+
+      if (frame.next_child != nullptr) {
+        current = frame.next_child;
+        frame.next_child = lxb_dom_node_next(current);
+        break;
       }
-      html.append("</");
-      html.append(reinterpret_cast<const char *>(name), name_length);
-      html.append(">");
+
+      html.append(frame.closing_tag);
+      stack.pop_back();
+    }
+
+    if (stack.empty()) {
+      return;
     }
   }
 }
@@ -357,51 +396,94 @@ ERL_NIF_TERM attributes_to_term(ErlNifEnv *env, lxb_dom_element_t *element,
 void node_to_tree(ErlNifEnv *env, fine::ResourcePtr<LazyHTML> &resource,
                   lxb_dom_node_t *node, std::vector<ERL_NIF_TERM> &tree,
                   bool sort_attributes, bool skip_whitespace_nodes) {
-  if (node->type == LXB_DOM_NODE_TYPE_ELEMENT) {
-    auto element = lxb_dom_interface_element(node);
+  // We use an explicit stack instead of recursion to avoid stack
+  // overflow on deeply nested trees.
+  struct StackFrame {
+    lxb_dom_node_t *next_child;
+    ERL_NIF_TERM name_term;
+    ERL_NIF_TERM attrs_term;
+    std::vector<ERL_NIF_TERM> children;
+  };
 
-    size_t name_length;
-    auto name = lxb_dom_element_qualified_name(element, &name_length);
-    if (name == NULL) {
-      throw std::runtime_error("failed to read tag name");
-    }
-    auto name_term = make_new_binary(env, name_length, name);
+  std::vector<StackFrame> stack;
 
-    auto attrs_term = attributes_to_term(env, element, sort_attributes);
+  auto current = node;
 
-    auto children = std::vector<ERL_NIF_TERM>();
-    for (auto child = template_aware_first_child(node); child != NULL;
-         child = lxb_dom_node_next(child)) {
-      node_to_tree(env, resource, child, children, sort_attributes,
-                   skip_whitespace_nodes);
-    }
+  while (true) {
+    if (current->type == LXB_DOM_NODE_TYPE_TEXT) {
+      auto character_data = lxb_dom_interface_character_data(current);
 
-    auto children_term = enif_make_list_from_array(
-        env, children.data(), static_cast<unsigned int>(children.size()));
+      auto whitespace_size = leading_whitespace_size(
+          character_data->data.data, character_data->data.length);
 
-    tree.push_back(enif_make_tuple3(env, name_term, attrs_term, children_term));
-  } else if (node->type == LXB_DOM_NODE_TYPE_TEXT) {
-    auto character_data = lxb_dom_interface_character_data(node);
-
-    auto whitespace_size = leading_whitespace_size(character_data->data.data,
-                                                   character_data->data.length);
-
-    if (whitespace_size == character_data->data.length &&
-        skip_whitespace_nodes) {
-      // Append nothing
-    } else {
+      if (!(whitespace_size == character_data->data.length &&
+            skip_whitespace_nodes)) {
+        auto term = fine::make_resource_binary(
+            env, resource, reinterpret_cast<char *>(character_data->data.data),
+            character_data->data.length);
+        auto &target = stack.empty() ? tree : stack.back().children;
+        target.push_back(term);
+      }
+    } else if (current->type == LXB_DOM_NODE_TYPE_COMMENT) {
+      auto character_data = lxb_dom_interface_character_data(current);
       auto term = fine::make_resource_binary(
           env, resource, reinterpret_cast<char *>(character_data->data.data),
           character_data->data.length);
-      tree.push_back(term);
+      auto &target = stack.empty() ? tree : stack.back().children;
+      target.push_back(
+          enif_make_tuple2(env, fine::encode(env, atoms::comment), term));
+    } else if (current->type == LXB_DOM_NODE_TYPE_ELEMENT) {
+      auto element = lxb_dom_interface_element(current);
+
+      size_t name_length;
+      auto name = lxb_dom_element_qualified_name(element, &name_length);
+      if (name == NULL) {
+        throw std::runtime_error("failed to read tag name");
+      }
+      auto name_term = make_new_binary(env, name_length, name);
+      auto attrs_term = attributes_to_term(env, element, sort_attributes);
+
+      auto first_child = template_aware_first_child(current);
+
+      if (first_child == nullptr) {
+        auto children_term = enif_make_list(env, 0);
+        auto &target = stack.empty() ? tree : stack.back().children;
+        target.push_back(
+            enif_make_tuple3(env, name_term, attrs_term, children_term));
+      } else {
+        stack.push_back(
+            {lxb_dom_node_next(first_child), name_term, attrs_term, {}});
+        // Immediately process the child.
+        current = first_child;
+        continue;
+      }
     }
-  } else if (node->type == LXB_DOM_NODE_TYPE_COMMENT) {
-    auto character_data = lxb_dom_interface_character_data(node);
-    auto term = fine::make_resource_binary(
-        env, resource, reinterpret_cast<char *>(character_data->data.data),
-        character_data->data.length);
-    tree.push_back(
-        enif_make_tuple2(env, fine::encode(env, atoms::comment), term));
+
+    // Advance to the next sibling, or pop frames until we find one.
+    while (!stack.empty()) {
+      auto &frame = stack.back();
+
+      if (frame.next_child != nullptr) {
+        current = frame.next_child;
+        frame.next_child = lxb_dom_node_next(current);
+        break;
+      }
+
+      auto children_term = enif_make_list_from_array(
+          env, frame.children.data(),
+          static_cast<unsigned int>(frame.children.size()));
+      auto element_term = enif_make_tuple3(env, frame.name_term,
+                                           frame.attrs_term, children_term);
+
+      stack.pop_back();
+
+      auto &target = stack.empty() ? tree : stack.back().children;
+      target.push_back(element_term);
+    }
+
+    if (stack.empty()) {
+      return;
+    }
   }
 }
 
@@ -432,10 +514,10 @@ std::optional<uintptr_t> get_tag_namespace(ErlNifBinary name) {
   return std::nullopt;
 }
 
-lxb_dom_node_t *node_from_tree_item(ErlNifEnv *env,
-                                    lxb_html_document_t *document,
-                                    fine::Term item,
-                                    std::optional<uintptr_t> ns) {
+void insert_children_from_tree(ErlNifEnv *env, lxb_html_document_t *document,
+                               lxb_dom_node_t *root,
+                               std::vector<fine::Term> tree,
+                               std::optional<uintptr_t> ns) {
   using ExText = ErlNifBinary;
   using ExElement =
       std::tuple<ErlNifBinary,
@@ -443,69 +525,100 @@ lxb_dom_node_t *node_from_tree_item(ErlNifEnv *env,
                  std::vector<fine::Term>>;
   using ExComment = std::tuple<fine::Atom, ErlNifBinary>;
 
-  auto decoded =
-      fine::decode<std::variant<ExText, ExElement, ExComment>>(env, item);
+  // We use an explicit stack instead of recursion to avoid stack
+  // overflow on deeply nested trees.
+  struct StackFrame {
+    lxb_dom_node_t *parent;
+    std::vector<fine::Term> children;
+    size_t index;
+    std::optional<uintptr_t> ns;
+  };
 
-  if (auto text_ptr = std::get_if<ExText>(&decoded)) {
-    auto text = lxb_dom_document_create_text_node(
-        &document->dom_document, text_ptr->data, text_ptr->size);
-    if (text == NULL) {
-      throw std::runtime_error("failed to create text node");
-    }
-    return lxb_dom_interface_node(text);
-  } else if (auto element_ptr = std::get_if<ExElement>(&decoded)) {
-    const auto &[name, attributes, children_tree] = *element_ptr;
+  std::vector<StackFrame> stack;
 
-    auto element = lxb_dom_document_create_element(&document->dom_document,
-                                                   name.data, name.size, NULL);
+  stack.push_back({root, tree, 0, ns});
 
-    auto node = lxb_dom_interface_node(element);
+  while (!stack.empty()) {
+    auto &frame = stack.back();
 
-    if (!ns) {
-      ns = get_tag_namespace(name);
-    }
-
-    if (ns) {
-      node->ns = ns.value();
+    if (frame.index >= frame.children.size()) {
+      stack.pop_back();
+      continue;
     }
 
-    for (auto &[key, value] : attributes) {
-      auto attr = lxb_dom_element_set_attribute(element, key.data, key.size,
-                                                value.data, value.size);
-      if (attr == NULL) {
-        throw std::runtime_error("failed to set element attribute");
+    auto current_item = frame.children[frame.index];
+    auto current_ns = frame.ns;
+    auto current_parent = frame.parent;
+    frame.index++;
+
+    auto decoded = fine::decode<std::variant<ExText, ExElement, ExComment>>(
+        env, current_item);
+
+    lxb_dom_node_t *node = nullptr;
+
+    if (auto text_ptr = std::get_if<ExText>(&decoded)) {
+      auto text = lxb_dom_document_create_text_node(
+          &document->dom_document, text_ptr->data, text_ptr->size);
+      if (text == NULL) {
+        throw std::runtime_error("failed to create text node");
       }
+      node = lxb_dom_interface_node(text);
+    } else if (auto element_ptr = std::get_if<ExElement>(&decoded)) {
+      auto &[name, attributes, children_tree] = *element_ptr;
+
+      auto element = lxb_dom_document_create_element(
+          &document->dom_document, name.data, name.size, NULL);
+
+      node = lxb_dom_interface_node(element);
+
+      if (!current_ns) {
+        current_ns = get_tag_namespace(name);
+      }
+
+      if (current_ns) {
+        node->ns = current_ns.value();
+      }
+
+      for (auto &[key, value] : attributes) {
+        auto attr = lxb_dom_element_set_attribute(element, key.data, key.size,
+                                                  value.data, value.size);
+        if (attr == NULL) {
+          throw std::runtime_error("failed to set element attribute");
+        }
+      }
+
+      auto insert_parent = node;
+
+      if (lxb_html_tree_node_is(node, LXB_TAG_TEMPLATE)) {
+        // <template> elements don't have direct children, instead they hold
+        // a document fragment node, so we insert into the fragment instead.
+        insert_parent = &lxb_html_interface_template(node)->content->node;
+      }
+
+      if (!children_tree.empty()) {
+        // Note: push_back may invalidate frame reference, if reallocation
+        // occurs, so we do it last.
+        stack.push_back(
+            {insert_parent, std::move(children_tree), 0, current_ns});
+      }
+    } else {
+      auto &[atom, content] = std::get<ExComment>(decoded);
+
+      if (!(atom == atoms::comment)) {
+        throw std::invalid_argument("tuple contains unexpected atom: :" +
+                                    atom.to_string());
+      }
+
+      auto comment = lxb_dom_document_create_comment(
+          &document->dom_document, content.data, content.size);
+      if (comment == NULL) {
+        throw std::runtime_error("failed to create comment node");
+      }
+      node = lxb_dom_interface_node(comment);
     }
 
-    if (lxb_html_tree_node_is(node, LXB_TAG_TEMPLATE)) {
-      // <template> elements don't have direct children, instead they hold
-      // a document fragment node, so we insert into the fragment instead.
-      node = &lxb_html_interface_template(node)->content->node;
-    }
-
-    for (auto child_item : children_tree) {
-      auto child_node = node_from_tree_item(env, document, child_item, ns);
-      lxb_dom_node_insert_child(node, child_node);
-    }
-
-    return lxb_dom_interface_node(element);
-  } else if (auto comment_ptr = std::get_if<ExComment>(&decoded)) {
-    const auto &[atom, content] = *comment_ptr;
-
-    if (!(atom == atoms::comment)) {
-      throw std::invalid_argument("tuple contains unexpected atom: :" +
-                                  atom.to_string());
-    }
-
-    auto comment = lxb_dom_document_create_comment(&document->dom_document,
-                                                   content.data, content.size);
-    if (comment == NULL) {
-      throw std::runtime_error("failed to create comment node");
-    }
-    return lxb_dom_interface_node(comment);
+    lxb_dom_node_insert_child(current_parent, node);
   }
-
-  throw std::logic_error("unreachable");
 }
 
 ExLazyHTML from_tree(ErlNifEnv *env, std::vector<fine::Term> tree) {
@@ -519,10 +632,11 @@ ExLazyHTML from_tree(ErlNifEnv *env, std::vector<fine::Term> tree) {
   auto root = lxb_dom_interface_node(document);
   auto nodes = std::vector<lxb_dom_node_t *>();
 
-  for (auto tree_node : tree) {
-    auto node = node_from_tree_item(env, document, tree_node, std::nullopt);
-    lxb_dom_node_insert_child(root, lxb_dom_interface_node(node));
-    nodes.push_back(node);
+  insert_children_from_tree(env, document, root, tree, std::nullopt);
+
+  for (auto child = lxb_dom_node_first_child(root); child != NULL;
+       child = lxb_dom_node_next(child)) {
+    nodes.push_back(child);
   }
 
   bool is_fragment =
