@@ -697,17 +697,27 @@ ExLazyHTML query(ErlNifEnv *env, ExLazyHTML ex_lazy_html,
                                        LXB_SELECTORS_OPT_MATCH_ROOT));
 
   auto nodes = std::vector<lxb_dom_node_t *>();
+  auto inserted_nodes = std::unordered_set<lxb_dom_node_t *>();
+
+  struct FindCtx {
+    std::vector<lxb_dom_node_t *> *nodes;
+    std::unordered_set<lxb_dom_node_t *> *inserted_nodes;
+  };
+
+  auto ctx = FindCtx{&nodes, &inserted_nodes};
 
   for (auto node : ex_lazy_html.resource->nodes) {
     status = lxb_selectors_find(
         selectors, node, css_selector_list,
         [](lxb_dom_node_t *node, lxb_css_selector_specificity_t spec,
            void *ctx) -> lxb_status_t {
-          auto nodes_ptr = static_cast<std::vector<lxb_dom_node_t *> *>(ctx);
-          nodes_ptr->push_back(node);
+          auto find_ctx = static_cast<FindCtx *>(ctx);
+          if (find_ctx->inserted_nodes->insert(node).second) {
+            find_ctx->nodes->push_back(node);
+          }
           return LXB_STATUS_OK;
         },
-        &nodes);
+        &ctx);
     if (status != LXB_STATUS_OK) {
       throw std::runtime_error("failed to run find");
     }
@@ -789,22 +799,31 @@ bool matches_id(lxb_dom_node_t *node, ErlNifBinary *id) {
 ExLazyHTML query_by_id(ErlNifEnv *env, ExLazyHTML ex_lazy_html,
                        ErlNifBinary id) {
   auto nodes = std::vector<lxb_dom_node_t *>();
+  auto seen = std::unordered_set<lxb_dom_node_t *>();
 
-  auto ctx = std::make_tuple(&nodes, &id);
+  struct WalkCtx {
+    std::vector<lxb_dom_node_t *> *nodes;
+    std::unordered_set<lxb_dom_node_t *> *seen;
+    ErlNifBinary *id;
+  };
+
+  auto ctx = WalkCtx{&nodes, &seen, &id};
 
   for (auto node : ex_lazy_html.resource->nodes) {
     if (matches_id(node, &id)) {
-      nodes.push_back(node);
+      if (seen.insert(node).second) {
+        nodes.push_back(node);
+      }
     }
 
     lxb_dom_node_simple_walk(
         node,
         [](lxb_dom_node_t *node, void *ctx) -> lexbor_action_t {
-          auto [nodes_ptr, id_ptr] = *static_cast<
-              std::tuple<std::vector<lxb_dom_node_t *> *, ErlNifBinary *> *>(
-              ctx);
-          if (matches_id(node, id_ptr)) {
-            nodes_ptr->push_back(node);
+          auto walk_ctx = static_cast<WalkCtx *>(ctx);
+          if (matches_id(node, walk_ctx->id)) {
+            if (walk_ctx->seen->insert(node).second) {
+              walk_ctx->nodes->push_back(node);
+            }
           }
 
           return LEXBOR_ACTION_OK;
@@ -843,9 +862,7 @@ ExLazyHTML parent_node(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
     auto parent = lxb_dom_node_parent(node);
     if (parent != NULL && parent->type == LXB_DOM_NODE_TYPE_ELEMENT &&
         (is_document || !lxb_html_tree_node_is(parent, LXB_TAG_HTML))) {
-      auto inserted_node = inserted_nodes.find(parent);
-      if (inserted_node == inserted_nodes.end()) {
-        inserted_nodes.insert(parent);
+      if (inserted_nodes.insert(parent).second) {
         nodes.push_back(parent);
       }
     }

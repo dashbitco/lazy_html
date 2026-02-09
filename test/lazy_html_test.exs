@@ -248,6 +248,36 @@ defmodule LazyHTMLTest do
         LazyHTML.query(lazy_html, "hover:")
       end
     end
+
+    test "does not include duplicated elements in the result set" do
+      fragment =
+        LazyHTML.from_fragment(~S"""
+        <div>
+          <div>1</div>
+          <div>2</div>
+        </div>
+        """)
+
+      result = fragment |> LazyHTML.query("div") |> LazyHTML.query("div")
+
+      # If nodes were not deduplicated, the second query would inflate
+      # the result to 5 nodes. We expect only 3 unique nodes.
+
+      assert inspect(result) == """
+             #LazyHTML<
+               3 nodes (from selector)
+               #1
+               <div>
+                 <div>1</div>
+                 <div>2</div>
+               </div>
+               #2
+               <div>1</div>
+               #3
+               <div>2</div>
+             >\
+             """
+    end
   end
 
   describe "parent_node/1" do
@@ -378,6 +408,36 @@ defmodule LazyHTMLTest do
 
       result = LazyHTML.query_by_id(lazy_html, "root")
       assert Enum.count(result) == 1
+    end
+
+    test "does not include duplicated elements in the result set" do
+      # A proper HTML document should not have duplicated ids, but it
+      # can be the case.
+      fragment =
+        LazyHTML.from_fragment(~S"""
+        <div id="1">
+          <div id="1">1</div>
+          <div>2</div>
+        </div>
+        """)
+
+      result = fragment |> LazyHTML.query_by_id("1") |> LazyHTML.query_by_id("1")
+
+      # If nodes were not deduplicated, the second query would inflate
+      # the result to 3 nodes. We expect only 2 unique nodes.
+
+      assert inspect(result) == """
+             #LazyHTML<
+               2 nodes (from selector)
+               #1
+               <div id=\"1\">
+                 <div id=\"1\">1</div>
+                 <div>2</div>
+               </div>
+               #2
+               <div id=\"1\">1</div>
+             >\
+             """
     end
   end
 
