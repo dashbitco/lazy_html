@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.1.11](https://github.com/dashbitco/lazy_html/tree/v0.1.11) (2026-04-02)
+
+### Added
+
+- Added `:separator` option to `LazyHTML.text/1` ([#33](https://github.com/dashbitco/lazy_html/pull/33))
+
 ## [v0.1.10](https://github.com/dashbitco/lazy_html/tree/v0.1.10) (2026-02-09)
 
 ### Fixed
