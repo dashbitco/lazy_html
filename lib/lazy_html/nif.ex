@@ -23,7 +23,7 @@ defmodule LazyHTML.NIF do
   def child_nodes(_lazy_html), do: err!()
   def parent_node(_lazy_html), do: err!()
   def nth_child(_lazy_html), do: err!()
-  def text(_lazy_html), do: err!()
+  def text(_lazy_html, _separator), do: err!()
   def attribute(_lazy_html, _name), do: err!()
   def attributes(_lazy_html), do: err!()
   def tag(_lazy_html), do: err!()

@@ -402,11 +402,25 @@ defmodule LazyHTML do
   @doc """
   Returns the text content of all nodes in `lazy_html`.
 
+  ## Options
+
+    * `:separator` - a separator used to join the text content from
+      individual nodes. Note that the separator is only inserted
+      between non-empty nodes. Defaults to no separator.
+
   ## Examples
 
       iex> lazy_html = LazyHTML.from_fragment(~S|<div><span>Hello</span> <span>world</span></div>|)
       iex> LazyHTML.text(lazy_html)
       "Hello world"
+
+      iex> lazy_html = LazyHTML.from_fragment(~S|<div><span>1</span><span>2</span><span>3</span></div>|)
+      iex> LazyHTML.text(lazy_html, separator: ", ")
+      "1, 2, 3"
+
+      iex> lazy_html = LazyHTML.from_fragment(~S|<div><span>1</span><span></span><span>2</span></div>|)
+      iex> LazyHTML.text(lazy_html, separator: ", ")
+      "1, 2"
 
   If you want to get the text for each root node separately, you can
   use `Enum.map/2`:
@@ -424,9 +438,10 @@ defmodule LazyHTML do
       ["Hello", "world"]
 
   """
-  @spec text(t()) :: String.t()
-  def text(%LazyHTML{} = lazy_html) do
-    LazyHTML.NIF.text(lazy_html)
+  @spec text(t(), keyword()) :: String.t()
+  def text(%LazyHTML{} = lazy_html, opts \\ []) do
+    opts = Keyword.validate!(opts, [:separator])
+    LazyHTML.NIF.text(lazy_html, opts[:separator])
   end
 
   @doc ~S'''
