@@ -902,26 +902,62 @@ std::vector<int64_t> nth_child(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
 }
 FINE_NIF(nth_child, ERL_NIF_DIRTY_JOB_CPU_BOUND);
 
-std::string text(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
-  auto document = ex_lazy_html.resource->document_ref->document;
+void node_text(lxb_dom_node_t *node, std::string &content,
+               std::optional<std::string> &separator) {
+  // We use an explicit stack instead of recursion to avoid stack
+  // overflow on deeply nested trees.
+  struct StackFrame {
+    lxb_dom_node_t *next_child;
+  };
 
+  std::vector<StackFrame> stack;
+
+  auto current = node;
+
+  while (true) {
+    if (current->type == LXB_DOM_NODE_TYPE_TEXT) {
+      auto character_data = lxb_dom_interface_character_data(current);
+      if (character_data->data.length > 0) {
+        if (separator.has_value() && !content.empty()) {
+          content.append(separator.value());
+        }
+        content.append(reinterpret_cast<char *>(character_data->data.data),
+                       character_data->data.length);
+      }
+    } else if (current->type == LXB_DOM_NODE_TYPE_ELEMENT) {
+      auto first_child = template_aware_first_child(current);
+      if (first_child != nullptr) {
+        stack.push_back({lxb_dom_node_next(first_child)});
+        current = first_child;
+        continue;
+      }
+    }
+
+    // Advance to the next sibling, or pop frames until we find one.
+    while (!stack.empty()) {
+      auto &frame = stack.back();
+
+      if (frame.next_child != nullptr) {
+        current = frame.next_child;
+        frame.next_child = lxb_dom_node_next(current);
+        break;
+      }
+
+      stack.pop_back();
+    }
+
+    if (stack.empty()) {
+      return;
+    }
+  }
+}
+
+std::string text(ErlNifEnv *env, ExLazyHTML ex_lazy_html,
+                 std::optional<std::string> separator) {
   auto content = std::string();
 
   for (auto node : ex_lazy_html.resource->nodes) {
-    if (node->type == LXB_DOM_NODE_TYPE_ELEMENT ||
-        node->type == LXB_DOM_NODE_TYPE_TEXT) {
-      size_t size;
-      auto text = lxb_dom_node_text_content(node, &size);
-      if (text == NULL) {
-        throw std::runtime_error("failed to get element text content");
-      }
-      auto text_guard = ScopeGuard([&]() {
-        lxb_dom_document_destroy_text(lxb_dom_interface_document(document),
-                                      text);
-      });
-
-      content.append(reinterpret_cast<char *>(text), size);
-    }
+    node_text(node, content, separator);
   }
 
   return content;
