@@ -538,6 +538,82 @@ defmodule LazyHTML do
     LazyHTML.NIF.tag(lazy_html)
   end
 
+  @doc ~S'''
+  Removes all elements matching the CSS selector from the DOM tree.
+
+  This mutates the native DOM in place, so subsequent operations
+  (including `to_html/1`) reflect the removal. Much faster than
+  round-tripping through `to_tree/1` for tree transformation
+  workloads like HTML sanitization or content stripping.
+
+  The selector uses the same CSS engine as `query/2`, including
+  compound selectors.
+
+  > #### Warning {: .warning}
+  >
+  > Because this mutates the underlying DOM, any `%LazyHTML{}`
+  > values previously obtained via `query/2` that reference
+  > removed nodes become invalid. Always call `remove/2` before
+  > querying, or re-query after removal.
+
+  ## Examples
+
+      iex> doc = LazyHTML.from_fragment("<div><script>x</script><p>keep</p></div>")
+      iex> doc = LazyHTML.remove(doc, "script")
+      iex> LazyHTML.to_html(doc)
+      "<div><p>keep</p></div>"
+
+  Multiple selectors can be combined:
+
+      iex> doc = LazyHTML.from_fragment("<div><script>x</script><style>y</style><p>keep</p></div>")
+      iex> doc = LazyHTML.remove(doc, "script, style")
+      iex> LazyHTML.to_html(doc)
+      "<div><p>keep</p></div>"
+
+  '''
+  @spec remove(t(), String.t()) :: t()
+  def remove(%LazyHTML{} = lazy_html, selector) when is_binary(selector) do
+    LazyHTML.NIF.dom_remove(lazy_html, selector)
+  end
+
+  @doc ~S'''
+  Removes the named attribute from all element nodes and their descendants.
+
+  This mutates the native DOM in place.
+
+  ## Examples
+
+      iex> doc = LazyHTML.from_fragment(~s(<p style="color:red" class="x">hi</p>))
+      iex> doc = LazyHTML.remove_attribute(doc, "style")
+      iex> LazyHTML.to_html(doc)
+      ~s(<p class="x">hi</p>)
+
+  '''
+  @spec remove_attribute(t(), String.t()) :: t()
+  def remove_attribute(%LazyHTML{} = lazy_html, name) when is_binary(name) do
+    LazyHTML.NIF.dom_remove_attribute(lazy_html, name)
+  end
+
+  @doc ~S'''
+  Sets an attribute on all element nodes in the set.
+
+  If the attribute already exists, its value is replaced.
+  This mutates the native DOM in place.
+
+  ## Examples
+
+      iex> doc = LazyHTML.from_fragment(~s(<a href="/x">link</a>))
+      iex> doc = LazyHTML.set_attribute(doc, "rel", "nofollow")
+      iex> LazyHTML.to_html(doc)
+      ~s(<a href="/x" rel="nofollow">link</a>)
+
+  '''
+  @spec set_attribute(t(), String.t(), String.t()) :: t()
+  def set_attribute(%LazyHTML{} = lazy_html, name, value)
+      when is_binary(name) and is_binary(value) do
+    LazyHTML.NIF.dom_set_attribute(lazy_html, name, value)
+  end
+
   @doc ~S"""
   Escapes the given string to make a valid HTML text.
 

@@ -29,6 +29,9 @@ defmodule LazyHTML.NIF do
   def tag(_lazy_html), do: err!()
   def nodes(_lazy_html), do: err!()
   def num_nodes(_lazy_html), do: err!()
+  def dom_remove(_lazy_html, _css_selector), do: err!()
+  def dom_remove_attribute(_lazy_html, _name), do: err!()
+  def dom_set_attribute(_lazy_html, _name, _value), do: err!()
 
   defp err!(), do: :erlang.nif_error(:not_loaded)
 end

@@ -633,4 +633,94 @@ defmodule LazyHTMLTest do
              """
     end
   end
+
+  describe "remove/2" do
+    test "removes elements matching a simple selector" do
+      doc = LazyHTML.from_fragment("<div><script>bad</script><p>good</p></div>")
+      doc = LazyHTML.remove(doc, "script")
+      assert LazyHTML.to_html(doc) == "<div><p>good</p></div>"
+    end
+
+    test "removes elements matching a compound selector" do
+      doc = LazyHTML.from_fragment("<div><script>a</script><style>b</style><p>keep</p></div>")
+      doc = LazyHTML.remove(doc, "script, style")
+      assert LazyHTML.to_html(doc) == "<div><p>keep</p></div>"
+    end
+
+    test "removes nested matching elements" do
+      doc = LazyHTML.from_fragment("<div><div><script>deep</script></div><p>keep</p></div>")
+      doc = LazyHTML.remove(doc, "script")
+      assert LazyHTML.to_html(doc) == "<div><div></div><p>keep</p></div>"
+    end
+
+    test "removes elements matching attribute selectors" do
+      doc = LazyHTML.from_fragment(~s(<div><p hidden>hidden</p><p>visible</p></div>))
+      doc = LazyHTML.remove(doc, "[hidden]")
+      assert LazyHTML.to_html(doc) == "<div><p>visible</p></div>"
+    end
+
+    test "removes root nodes that match" do
+      doc = LazyHTML.from_fragment("<script>bad</script><p>good</p>")
+      doc = LazyHTML.remove(doc, "script")
+      assert LazyHTML.to_html(doc) == "<p>good</p>"
+    end
+
+    test "no-op when nothing matches" do
+      doc = LazyHTML.from_fragment("<p>hello</p>")
+      doc = LazyHTML.remove(doc, "script")
+      assert LazyHTML.to_html(doc) == "<p>hello</p>"
+    end
+
+    test "subsequent queries reflect removal" do
+      doc = LazyHTML.from_fragment("<div><script>x</script><p>keep</p></div>")
+      doc = LazyHTML.remove(doc, "script")
+      assert LazyHTML.query(doc, "script") |> Enum.to_list() == []
+      assert LazyHTML.query(doc, "p") |> LazyHTML.text() == "keep"
+    end
+  end
+
+  describe "remove_attribute/2" do
+    test "removes a named attribute from elements" do
+      doc = LazyHTML.from_fragment(~s(<p style="color:red" class="x">hi</p>))
+      doc = LazyHTML.remove_attribute(doc, "style")
+      assert LazyHTML.to_html(doc) == ~s(<p class="x">hi</p>)
+    end
+
+    test "removes attribute from nested elements" do
+      doc = LazyHTML.from_fragment(~s(<div style="a"><p style="b">text</p></div>))
+      doc = LazyHTML.remove_attribute(doc, "style")
+      assert LazyHTML.to_html(doc) == "<div><p>text</p></div>"
+    end
+
+    test "no-op when attribute doesn't exist" do
+      doc = LazyHTML.from_fragment("<p>hello</p>")
+      doc = LazyHTML.remove_attribute(doc, "style")
+      assert LazyHTML.to_html(doc) == "<p>hello</p>"
+    end
+  end
+
+  describe "set_attribute/3" do
+    test "sets a new attribute" do
+      doc = LazyHTML.from_fragment(~s(<a href="/x">link</a>))
+      doc = LazyHTML.set_attribute(doc, "rel", "nofollow")
+      html = LazyHTML.to_html(doc)
+      assert html =~ ~s(rel="nofollow")
+      assert html =~ ~s(href="/x")
+    end
+
+    test "overwrites an existing attribute" do
+      doc = LazyHTML.from_fragment(~s(<p class="old">text</p>))
+      doc = LazyHTML.set_attribute(doc, "class", "new")
+      assert LazyHTML.to_html(doc) == ~s(<p class="new">text</p>)
+    end
+
+    test "sets attribute on multiple nodes from query" do
+      doc = LazyHTML.from_fragment("<a>one</a><a>two</a>")
+      links = LazyHTML.query(doc, "a")
+      LazyHTML.set_attribute(links, "target", "_blank")
+      html = LazyHTML.to_html(doc)
+      assert html =~ ~s(<a target="_blank">one</a>)
+      assert html =~ ~s(<a target="_blank">two</a>)
+    end
+  end
 end
