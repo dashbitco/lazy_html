@@ -75,7 +75,7 @@ defmodule LazyHTML.MixProject do
   defp deps do
     [
       {:fine, "~> 0.1.0"},
-      {:elixir_make, "~> 0.9"},
+      {:elixir_make, "~> 0.9", runtime: false},
       {:cc_precompiler, "~> 0.1", runtime: false},
       {:ex_doc, "~> 0.36", only: :dev, runtime: false}
     ]
