@@ -13,7 +13,7 @@ jobs:
       matrix:
         include:
           - pair: { elixir: "1.15.8", otp: "25.3" }
-          - pair: { elixir: "1.18.3", otp: "27.2" }
+          - pair: { elixir: "1.20.2", otp: "29.0" }
             lint: true
     env:
       MIX_ENV: test
@@ -49,7 +49,7 @@ jobs:
       matrix:
         include:
           - pair: { elixir: "1.15.8", otp: "25.3" }
-          - pair: { elixir: "1.18.3", otp: "27.2" }
+          - pair: { elixir: "1.20.2", otp: "29.0" }
     env:
       MIX_ENV: test
     name: Windows x86_64 (${{ matrix.pair.elixir }}, ${{ matrix.pair.otp }})
@@ -80,7 +80,7 @@ jobs:
       matrix:
         include:
           - pair: { elixir: "1.15.8", otp: "25.3" }
-          - pair: { elixir: "1.18.3", otp: "27.2" }
+          - pair: { elixir: "1.20.2", otp: "29.0" }
     env:
       MIX_ENV: test
     name: macOS x86_64 (${{ matrix.pair.elixir }}, ${{ matrix.pair.otp }})
