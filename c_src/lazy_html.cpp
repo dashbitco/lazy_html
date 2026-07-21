@@ -1048,6 +1048,137 @@ std::vector<fine::Term> tag(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
 
 FINE_NIF(tag, 0);
 
+// ---------------------------------------------------------------------------
+// DOM mutation operations
+// ---------------------------------------------------------------------------
+
+// Remove all elements matching a CSS selector from the DOM tree.
+//
+// Uses the same CSS selector infrastructure as query(). Collects all
+// matching nodes first (can't modify the tree during traversal), then
+// destroys them via lxb_dom_node_destroy (unlink + free).
+//
+// Also scrubs the LazyHTML node vector to remove any root nodes that
+// were destroyed, preventing dangling pointer access.
+ExLazyHTML dom_remove(ErlNifEnv *env, ExLazyHTML ex_lazy_html,
+                      ErlNifBinary css_selector) {
+  auto parser = lxb_css_parser_create();
+  auto status = lxb_css_parser_init(parser, NULL);
+  if (status != LXB_STATUS_OK) {
+    throw std::runtime_error("failed to create css parser");
+  }
+  auto parser_guard =
+      ScopeGuard([&]() { lxb_css_parser_destroy(parser, true); });
+
+  auto css_selector_list = parse_css_selector(parser, css_selector);
+  auto css_selector_list_guard = ScopeGuard(
+      [&]() { lxb_css_selector_list_destroy_memory(css_selector_list); });
+
+  auto selectors = lxb_selectors_create();
+  status = lxb_selectors_init(selectors);
+  if (status != LXB_STATUS_OK) {
+    throw std::runtime_error("failed to create selectors");
+  }
+  auto selectors_guard =
+      ScopeGuard([&]() { lxb_selectors_destroy(selectors, true); });
+
+  lxb_selectors_opt_set(selectors, static_cast<lxb_selectors_opt_t>(
+                                       LXB_SELECTORS_OPT_MATCH_FIRST |
+                                       LXB_SELECTORS_OPT_MATCH_ROOT));
+
+  // Phase 1: Collect nodes to remove
+  auto to_remove = std::vector<lxb_dom_node_t *>();
+  auto seen = std::unordered_set<lxb_dom_node_t *>();
+
+  struct FindCtx {
+    std::vector<lxb_dom_node_t *> *to_remove;
+    std::unordered_set<lxb_dom_node_t *> *seen;
+  };
+
+  auto ctx = FindCtx{&to_remove, &seen};
+
+  for (auto node : ex_lazy_html.resource->nodes) {
+    status = lxb_selectors_find(
+        selectors, node, css_selector_list,
+        [](lxb_dom_node_t *node, lxb_css_selector_specificity_t spec,
+           void *ctx) -> lxb_status_t {
+          auto find_ctx = static_cast<FindCtx *>(ctx);
+          if (find_ctx->seen->insert(node).second) {
+            find_ctx->to_remove->push_back(node);
+          }
+          return LXB_STATUS_OK;
+        },
+        &ctx);
+    if (status != LXB_STATUS_OK) {
+      throw std::runtime_error("failed to run find");
+    }
+  }
+
+  // Phase 2: Destroy matched nodes (unlink from tree + free memory)
+  for (auto node : to_remove) {
+    lxb_dom_node_destroy(node);
+  }
+
+  // Phase 3: Scrub the LazyHTML root node vector to remove any
+  // destroyed nodes that were also roots
+  auto &nodes = ex_lazy_html.resource->nodes;
+  nodes.erase(
+      std::remove_if(nodes.begin(), nodes.end(),
+                     [&seen](lxb_dom_node_t *n) { return seen.count(n) > 0; }),
+      nodes.end());
+
+  return ex_lazy_html;
+}
+
+FINE_NIF(dom_remove, ERL_NIF_DIRTY_JOB_CPU_BOUND);
+
+// Remove a named attribute from all element nodes in the set and
+// all their descendants.
+ExLazyHTML dom_remove_attribute(ErlNifEnv *env, ExLazyHTML ex_lazy_html,
+                                ErlNifBinary name) {
+  for (auto node : ex_lazy_html.resource->nodes) {
+    // Remove from the node itself
+    if (node->type == LXB_DOM_NODE_TYPE_ELEMENT) {
+      auto element = lxb_dom_interface_element(node);
+      lxb_dom_element_remove_attribute(element, name.data, name.size);
+    }
+
+    // Remove from all descendants
+    lxb_dom_node_simple_walk(
+        node,
+        [](lxb_dom_node_t *child, void *ctx) -> lexbor_action_t {
+          if (child->type == LXB_DOM_NODE_TYPE_ELEMENT) {
+            auto walk_ctx = static_cast<ErlNifBinary *>(ctx);
+            auto element = lxb_dom_interface_element(child);
+            lxb_dom_element_remove_attribute(element, walk_ctx->data,
+                                            walk_ctx->size);
+          }
+          return LEXBOR_ACTION_OK;
+        },
+        &name);
+  }
+
+  return ex_lazy_html;
+}
+
+FINE_NIF(dom_remove_attribute, ERL_NIF_DIRTY_JOB_CPU_BOUND);
+
+// Set a named attribute on all element nodes in the set.
+ExLazyHTML dom_set_attribute(ErlNifEnv *env, ExLazyHTML ex_lazy_html,
+                             ErlNifBinary name, ErlNifBinary value) {
+  for (auto node : ex_lazy_html.resource->nodes) {
+    if (node->type == LXB_DOM_NODE_TYPE_ELEMENT) {
+      auto element = lxb_dom_interface_element(node);
+      lxb_dom_element_set_attribute(element, name.data, name.size, value.data,
+                                    value.size);
+    }
+  }
+
+  return ex_lazy_html;
+}
+
+FINE_NIF(dom_set_attribute, 0);
+
 } // namespace lazy_html
 
 FINE_INIT("Elixir.LazyHTML.NIF");
