@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <charconv>
 #include <erl_nif.h>
 #include <fine.hpp>
 #include <functional>
@@ -12,6 +13,7 @@
 
 #include <lexbor/css/css.h>
 #include <lexbor/dom/dom.h>
+#include <lexbor/encoding/decode.h>
 #include <lexbor/html/html.h>
 #include <lexbor/selectors/selectors.h>
 
@@ -901,6 +903,124 @@ std::vector<int64_t> nth_child(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
   return values;
 }
 FINE_NIF(nth_child, ERL_NIF_DIRTY_JOB_CPU_BOUND);
+
+bool is_ascii_digit(lxb_codepoint_t codepoint) {
+  return codepoint >= '0' && codepoint <= '9';
+}
+
+bool is_ascii_letter(lxb_codepoint_t codepoint) {
+  return (codepoint >= 'a' && codepoint <= 'z') ||
+         (codepoint >= 'A' && codepoint <= 'Z');
+}
+
+void append_css_codepoint_escape(std::string &identifier,
+                                 lxb_codepoint_t codepoint) {
+  char buffer[6];
+  auto result = std::to_chars(buffer, buffer + sizeof(buffer), codepoint, 16);
+  if (result.ec != std::errc()) {
+    throw std::runtime_error("failed to escape tag name");
+  }
+
+  identifier.push_back('\\');
+  identifier.append(buffer, result.ptr);
+  identifier.push_back(' ');
+}
+
+void append_css_identifier(std::string &identifier, const lxb_char_t *data,
+                           size_t length) {
+  auto current = data;
+  auto end = data + length;
+  size_t index = 0;
+
+  while (current < end) {
+    auto codepoint = lxb_encoding_decode_valid_utf_8_single(&current, end);
+    if (codepoint == LXB_ENCODING_DECODE_ERROR) {
+      throw std::runtime_error("tag name is not valid UTF-8");
+    }
+
+    bool leading_digit = index == 0 && is_ascii_digit(codepoint);
+    bool digit_after_leading_hyphen =
+        index == 1 && data[0] == '-' && is_ascii_digit(codepoint);
+    bool control = codepoint <= 0x1F || codepoint == 0x7F;
+
+    // Lexbor's selector parser currently requires non-ASCII identifier code
+    // points to be escaped, even though CSS allows them unescaped.
+    if (leading_digit || digit_after_leading_hyphen || control ||
+        codepoint >= 0x80) {
+      append_css_codepoint_escape(identifier, codepoint);
+    } else if (is_ascii_letter(codepoint) || is_ascii_digit(codepoint) ||
+               codepoint == '-' || codepoint == '_') {
+      if (index == 0 && codepoint == '-' && length == 1) {
+        identifier.append("\\-");
+      } else {
+        identifier.push_back(static_cast<char>(codepoint));
+      }
+    } else {
+      identifier.push_back('\\');
+      identifier.push_back(static_cast<char>(codepoint));
+    }
+
+    index++;
+  }
+}
+
+std::vector<std::string> css_paths(ErlNifEnv *env,
+                                   ExLazyHTML ex_lazy_html) {
+  auto paths = std::vector<std::string>();
+  bool is_fragment = ex_lazy_html.resource->document_ref->is_fragment;
+
+  for (auto node : ex_lazy_html.resource->nodes) {
+    if (node->type != LXB_DOM_NODE_TYPE_ELEMENT) {
+      continue;
+    }
+
+    auto segments = std::vector<std::string>();
+    auto current = node;
+
+    while (current != NULL && current->type == LXB_DOM_NODE_TYPE_ELEMENT &&
+           !(is_fragment && lxb_html_tree_node_is(current, LXB_TAG_HTML))) {
+      auto element = lxb_dom_interface_element(current);
+
+      size_t name_length;
+      auto name = lxb_dom_element_qualified_name(element, &name_length);
+      if (name == NULL) {
+        throw std::runtime_error("failed to read tag name");
+      }
+
+      int64_t position = 1;
+      // Scanning backwards avoids building a child-index table, but makes a
+      // batch selecting many siblings O(n^2) in the worst case.
+      for (auto sibling = lxb_dom_node_prev(current); sibling != NULL;
+           sibling = lxb_dom_node_prev(sibling)) {
+        if (sibling->type == LXB_DOM_NODE_TYPE_ELEMENT) {
+          position++;
+        }
+      }
+
+      auto segment = std::string();
+      append_css_identifier(segment, name, name_length);
+      segment.append(":nth-child(");
+      segment.append(std::to_string(position));
+      segment.push_back(')');
+      segments.push_back(std::move(segment));
+
+      current = lxb_dom_node_parent(current);
+    }
+
+    auto path = std::string();
+    for (auto segment = segments.rbegin(); segment != segments.rend();
+         ++segment) {
+      if (!path.empty()) {
+        path.append(" > ");
+      }
+      path.append(*segment);
+    }
+    paths.push_back(std::move(path));
+  }
+
+  return paths;
+}
+FINE_NIF(css_paths, ERL_NIF_DIRTY_JOB_CPU_BOUND);
 
 void node_text(lxb_dom_node_t *node, std::string &content,
                std::optional<std::string> &separator) {

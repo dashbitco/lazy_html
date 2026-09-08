@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## Unreleased
+
+### Added
+
+- Added `LazyHTML.css_paths/1` for generating queryable document-relative paths
+  for selections.
+
 ## [v0.1.12](https://github.com/dashbitco/lazy_html/tree/v0.1.11) (2026-07-20)
 
 ### Changed

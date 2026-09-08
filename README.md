@@ -47,7 +47,16 @@ hyperlinks = LazyHTML.query(lazy_html, "a")
 
 LazyHTML.attribute(hyperlinks, "href")
 #=> ["https://elixir-lang.org", "https://www.erlang.org"]
+
+LazyHTML.css_paths(hyperlinks)
+#=> [
+#=>   "div:nth-child(1) > a:nth-child(1)",
+#=>   "div:nth-child(1) > a:nth-child(2)"
+#=> ]
 ```
+
+`LazyHTML.css_paths/1` returns one document-relative, queryable CSS selector
+for each selected element, while keeping the operation batched in native code.
 
 LazyHTML also provides several high-level conveniences:
 
