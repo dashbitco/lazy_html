@@ -375,6 +375,112 @@ defmodule LazyHTMLTest do
     end
   end
 
+  describe "css_paths/1" do
+    test "returns queryable document-relative paths" do
+      document =
+        LazyHTML.from_document("""
+        <html>
+          <head><title>Example</title></head>
+          <body><main><p id="first"></p><p id="second"></p></main></body>
+        </html>
+        """)
+
+      paragraphs = LazyHTML.query(document, "p")
+
+      assert LazyHTML.css_paths(paragraphs) == [
+               "html:nth-child(1) > body:nth-child(2) > main:nth-child(1) > p:nth-child(1)",
+               "html:nth-child(1) > body:nth-child(2) > main:nth-child(1) > p:nth-child(2)"
+             ]
+
+      assert Enum.map(LazyHTML.css_paths(paragraphs), fn path ->
+               document |> LazyHTML.query(path) |> LazyHTML.attribute("id")
+             end) == [["first"], ["second"]]
+    end
+
+    test "distinguishes duplicate siblings across multiple fragment roots" do
+      fragment =
+        LazyHTML.from_fragment("""
+        text
+        <section><span id="one"></span><span id="two"></span></section>
+        <!-- comment -->
+        <section><span id="three"></span></section>
+        """)
+
+      spans = LazyHTML.query(fragment, "span")
+
+      assert LazyHTML.css_paths(spans) == [
+               "section:nth-child(1) > span:nth-child(1)",
+               "section:nth-child(1) > span:nth-child(2)",
+               "section:nth-child(2) > span:nth-child(1)"
+             ]
+
+      assert length(LazyHTML.css_paths(fragment)) == length(LazyHTML.tag(fragment))
+
+      assert Enum.map(LazyHTML.css_paths(spans), fn path ->
+               fragment |> LazyHTML.query(path) |> LazyHTML.attribute("id")
+             end) == [["one"], ["two"], ["three"]]
+    end
+
+    test "uses qualified SVG tag names" do
+      fragment =
+        LazyHTML.from_fragment("""
+        <svg>
+          <defs><linearGradient id="gradient"></linearGradient></defs>
+          <circle id="circle"></circle>
+        </svg>
+        """)
+
+      elements = LazyHTML.query(fragment, "linearGradient, circle")
+
+      assert LazyHTML.css_paths(elements) == [
+               "svg:nth-child(1) > defs:nth-child(1) > linearGradient:nth-child(1)",
+               "svg:nth-child(1) > circle:nth-child(2)"
+             ]
+
+      assert Enum.map(LazyHTML.css_paths(elements), fn path ->
+               fragment |> LazyHTML.query(path) |> LazyHTML.attribute("id")
+             end) == [["gradient"], ["circle"]]
+    end
+
+    test "escapes CSS syntax in custom tag names" do
+      fragment =
+        LazyHTML.from_fragment("""
+        <my-widget.compact id="dot"></my-widget.compact>
+        <svg:rect id="colon"></svg:rect>
+        """)
+
+      elements = LazyHTML.query(fragment, "*")
+
+      assert LazyHTML.css_paths(elements) == [
+               ~S|my-widget\.compact:nth-child(1)|,
+               ~S|svg\:rect:nth-child(2)|
+             ]
+
+      assert Enum.map(LazyHTML.css_paths(elements), fn path ->
+               fragment |> LazyHTML.query(path) |> LazyHTML.attribute("id")
+             end) == [["dot"], ["colon"]]
+    end
+
+    test "treats template elements as regular document elements" do
+      fragment =
+        LazyHTML.from_fragment("""
+        <template id="first"><div>content</div></template>
+        <template id="second"><span>content</span></template>
+        """)
+
+      templates = LazyHTML.query(fragment, "template")
+
+      assert LazyHTML.css_paths(templates) == [
+               "template:nth-child(1)",
+               "template:nth-child(2)"
+             ]
+
+      assert Enum.map(LazyHTML.css_paths(templates), fn path ->
+               fragment |> LazyHTML.query(path) |> LazyHTML.attribute("id")
+             end) == [["first"], ["second"]]
+    end
+  end
+
   describe "query_by_id/2" do
     test "raises when an empty id is given" do
       assert_raise ArgumentError, ~r/id cannot be empty/, fn ->

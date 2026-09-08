@@ -400,6 +400,34 @@ defmodule LazyHTML do
   end
 
   @doc """
+  Returns a document-relative CSS path for each selected element in `lazy_html`.
+
+  To build each path, LazyHTML walks from the selected element towards the
+  document root. At every level it records the element's qualified tag name
+  and its 1-based `:nth-child` position. The resulting path can be passed back
+  to `query/2` to find the same element in the original document or fragment.
+
+  As with `tag/1` and `nth_child/1`, text and comment nodes in the selection
+  are skipped.
+
+  ## Examples
+
+      iex> ~S|<main><span>first</span><span>second</span></main>|
+      ...> |> LazyHTML.from_fragment()
+      ...> |> LazyHTML.query("span")
+      ...> |> LazyHTML.css_paths()
+      [
+        "main:nth-child(1) > span:nth-child(1)",
+        "main:nth-child(1) > span:nth-child(2)"
+      ]
+
+  """
+  @spec css_paths(t()) :: list(String.t())
+  def css_paths(%LazyHTML{} = lazy_html) do
+    LazyHTML.NIF.css_paths(lazy_html)
+  end
+
+  @doc """
   Returns the text content of all nodes in `lazy_html`.
 
   ## Options
