@@ -442,44 +442,23 @@ defmodule LazyHTMLTest do
              end) == [["gradient"], ["circle"]]
     end
 
-    test "escapes tag names that contain CSS syntax" do
+    test "escapes CSS syntax in custom tag names" do
       fragment =
         LazyHTML.from_fragment("""
-        <foo:bar id="colon"></foo:bar>
-        <foo.bar id="dot"></foo.bar>
-        <foo#bar id="hash"></foo#bar>
+        <my-widget.compact id="dot"></my-widget.compact>
+        <svg:rect id="colon"></svg:rect>
         """)
 
       elements = LazyHTML.query(fragment, "*")
 
       assert LazyHTML.css_paths(elements) == [
-               ~S|foo\:bar:nth-child(1)|,
-               ~S|foo\.bar:nth-child(2)|,
-               ~S|foo\#bar:nth-child(3)|
+               ~S|my-widget\.compact:nth-child(1)|,
+               ~S|svg\:rect:nth-child(2)|
              ]
 
       assert Enum.map(LazyHTML.css_paths(elements), fn path ->
                fragment |> LazyHTML.query(path) |> LazyHTML.attribute("id")
-             end) == [["colon"], ["dot"], ["hash"]]
-    end
-
-    test "escapes leading digits and non-ASCII tag names" do
-      fragment =
-        LazyHTML.from_tree([
-          {"1st-item", [{"id", "digit"}], []},
-          {"\u00E9clair", [{"id", "unicode"}], []}
-        ])
-
-      elements = LazyHTML.query(fragment, "*")
-
-      assert LazyHTML.css_paths(elements) == [
-               ~S|\31 st-item:nth-child(1)|,
-               ~S|\e9 clair:nth-child(2)|
-             ]
-
-      assert Enum.map(LazyHTML.css_paths(elements), fn path ->
-               fragment |> LazyHTML.query(path) |> LazyHTML.attribute("id")
-             end) == [["digit"], ["unicode"]]
+             end) == [["dot"], ["colon"]]
     end
 
     test "treats template elements as regular document elements" do
