@@ -856,14 +856,14 @@ ExLazyHTML child_nodes(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
 FINE_NIF(child_nodes, 0);
 
 ExLazyHTML parent_node(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
-  bool is_document = !ex_lazy_html.resource->document_ref->is_fragment;
+  bool is_fragment = ex_lazy_html.resource->document_ref->is_fragment;
   auto nodes = std::vector<lxb_dom_node_t *>();
   auto inserted_nodes = std::unordered_set<lxb_dom_node_t *>();
 
   for (auto node : ex_lazy_html.resource->nodes) {
     auto parent = lxb_dom_node_parent(node);
     if (parent != NULL && parent->type == LXB_DOM_NODE_TYPE_ELEMENT &&
-        (is_document || !lxb_html_tree_node_is(parent, LXB_TAG_HTML))) {
+        !(is_fragment && lxb_html_tree_node_is(parent, LXB_TAG_HTML))) {
       if (inserted_nodes.insert(parent).second) {
         nodes.push_back(parent);
       }
@@ -966,8 +966,7 @@ void append_css_identifier(std::string &identifier, const lxb_char_t *data,
   }
 }
 
-std::vector<std::string> css_paths(ErlNifEnv *env,
-                                   ExLazyHTML ex_lazy_html) {
+std::vector<std::string> css_path(ErlNifEnv *env, ExLazyHTML ex_lazy_html) {
   auto paths = std::vector<std::string>();
   bool is_fragment = ex_lazy_html.resource->document_ref->is_fragment;
 
@@ -1022,7 +1021,7 @@ std::vector<std::string> css_paths(ErlNifEnv *env,
 
   return paths;
 }
-FINE_NIF(css_paths, ERL_NIF_DIRTY_JOB_CPU_BOUND);
+FINE_NIF(css_path, ERL_NIF_DIRTY_JOB_CPU_BOUND);
 
 void node_text(lxb_dom_node_t *node, std::string &content,
                std::optional<std::string> &separator) {

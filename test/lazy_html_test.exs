@@ -375,7 +375,7 @@ defmodule LazyHTMLTest do
     end
   end
 
-  describe "css_paths/1" do
+  describe "css_path/1" do
     test "returns queryable document-relative paths" do
       document =
         LazyHTML.from_document("""
@@ -387,12 +387,12 @@ defmodule LazyHTMLTest do
 
       paragraphs = LazyHTML.query(document, "p")
 
-      assert LazyHTML.css_paths(paragraphs) == [
+      assert LazyHTML.css_path(paragraphs) == [
                "html:nth-child(1) > body:nth-child(2) > main:nth-child(1) > p:nth-child(1)",
                "html:nth-child(1) > body:nth-child(2) > main:nth-child(1) > p:nth-child(2)"
              ]
 
-      assert Enum.map(LazyHTML.css_paths(paragraphs), fn path ->
+      assert Enum.map(LazyHTML.css_path(paragraphs), fn path ->
                document |> LazyHTML.query(path) |> LazyHTML.attribute("id")
              end) == [["first"], ["second"]]
     end
@@ -408,15 +408,15 @@ defmodule LazyHTMLTest do
 
       spans = LazyHTML.query(fragment, "span")
 
-      assert LazyHTML.css_paths(spans) == [
+      assert LazyHTML.css_path(spans) == [
                "section:nth-child(1) > span:nth-child(1)",
                "section:nth-child(1) > span:nth-child(2)",
                "section:nth-child(2) > span:nth-child(1)"
              ]
 
-      assert length(LazyHTML.css_paths(fragment)) == length(LazyHTML.tag(fragment))
+      assert length(LazyHTML.css_path(fragment)) == length(LazyHTML.tag(fragment))
 
-      assert Enum.map(LazyHTML.css_paths(spans), fn path ->
+      assert Enum.map(LazyHTML.css_path(spans), fn path ->
                fragment |> LazyHTML.query(path) |> LazyHTML.attribute("id")
              end) == [["one"], ["two"], ["three"]]
     end
@@ -432,12 +432,12 @@ defmodule LazyHTMLTest do
 
       elements = LazyHTML.query(fragment, "linearGradient, circle")
 
-      assert LazyHTML.css_paths(elements) == [
+      assert LazyHTML.css_path(elements) == [
                "svg:nth-child(1) > defs:nth-child(1) > linearGradient:nth-child(1)",
                "svg:nth-child(1) > circle:nth-child(2)"
              ]
 
-      assert Enum.map(LazyHTML.css_paths(elements), fn path ->
+      assert Enum.map(LazyHTML.css_path(elements), fn path ->
                fragment |> LazyHTML.query(path) |> LazyHTML.attribute("id")
              end) == [["gradient"], ["circle"]]
     end
@@ -451,14 +451,71 @@ defmodule LazyHTMLTest do
 
       elements = LazyHTML.query(fragment, "*")
 
-      assert LazyHTML.css_paths(elements) == [
+      assert LazyHTML.css_path(elements) == [
                ~S|my-widget\.compact:nth-child(1)|,
                ~S|svg\:rect:nth-child(2)|
              ]
 
-      assert Enum.map(LazyHTML.css_paths(elements), fn path ->
+      assert Enum.map(LazyHTML.css_path(elements), fn path ->
                fragment |> LazyHTML.query(path) |> LazyHTML.attribute("id")
              end) == [["dot"], ["colon"]]
+    end
+
+    test "escapes edge cases in CSS identifiers" do
+      fragment =
+        LazyHTML.from_tree([
+          {"1st-item", [{"id", "digit"}], []},
+          {"-1st-item", [{"id", "hyphen-digit"}], []},
+          {"-", [{"id", "hyphen"}], []},
+          {"item\u001F", [{"id", "control"}], []},
+          {"item\u007F", [{"id", "delete"}], []},
+          {"éclair", [{"id", "unicode"}], []},
+          {"item😀", [{"id", "emoji"}], []},
+          {"item\\name", [{"id", "backslash"}], []},
+          {"item name", [{"id", "space"}], []},
+          {"item\u{10FFFF}", [{"id", "unicode-max"}], []},
+          {"_item-12", [{"id", "unescaped"}], []}
+        ])
+
+      paths = LazyHTML.css_path(fragment)
+
+      assert paths == [
+               ~S|\31 st-item:nth-child(1)|,
+               ~S|-\31 st-item:nth-child(2)|,
+               ~S|\-:nth-child(3)|,
+               ~S|item\1f :nth-child(4)|,
+               ~S|item\7f :nth-child(5)|,
+               ~S|\e9 clair:nth-child(6)|,
+               ~S|item\1f600 :nth-child(7)|,
+               ~S|item\\name:nth-child(8)|,
+               ~S|item\ name:nth-child(9)|,
+               ~S|item\10ffff :nth-child(10)|,
+               ~S|_item-12:nth-child(11)|
+             ]
+
+      assert Enum.map(paths, fn path ->
+               fragment |> LazyHTML.query(path) |> LazyHTML.attribute("id")
+             end) == [
+               ["digit"],
+               ["hyphen-digit"],
+               ["hyphen"],
+               ["control"],
+               ["delete"],
+               ["unicode"],
+               ["emoji"],
+               ["backslash"],
+               ["space"],
+               ["unicode-max"],
+               ["unescaped"]
+             ]
+    end
+
+    test "raises for invalid UTF-8 in tag names" do
+      fragment = LazyHTML.from_tree([{<<"item", 0xFF>>, [], []}])
+
+      assert_raise RuntimeError, "tag name is not valid UTF-8", fn ->
+        LazyHTML.css_path(fragment)
+      end
     end
 
     test "treats template elements as regular document elements" do
@@ -470,12 +527,12 @@ defmodule LazyHTMLTest do
 
       templates = LazyHTML.query(fragment, "template")
 
-      assert LazyHTML.css_paths(templates) == [
+      assert LazyHTML.css_path(templates) == [
                "template:nth-child(1)",
                "template:nth-child(2)"
              ]
 
-      assert Enum.map(LazyHTML.css_paths(templates), fn path ->
+      assert Enum.map(LazyHTML.css_path(templates), fn path ->
                fragment |> LazyHTML.query(path) |> LazyHTML.attribute("id")
              end) == [["first"], ["second"]]
     end

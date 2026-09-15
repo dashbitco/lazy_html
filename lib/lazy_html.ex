@@ -410,16 +410,16 @@ defmodule LazyHTML do
       iex> ~S|<main><span>first</span><span>second</span></main>|
       ...> |> LazyHTML.from_fragment()
       ...> |> LazyHTML.query("span")
-      ...> |> LazyHTML.css_paths()
+      ...> |> LazyHTML.css_path()
       [
         "main:nth-child(1) > span:nth-child(1)",
         "main:nth-child(1) > span:nth-child(2)"
       ]
 
   """
-  @spec css_paths(t()) :: list(String.t())
-  def css_paths(%LazyHTML{} = lazy_html) do
-    LazyHTML.NIF.css_paths(lazy_html)
+  @spec css_path(t()) :: list(String.t())
+  def css_path(%LazyHTML{} = lazy_html) do
+    LazyHTML.NIF.css_path(lazy_html)
   end
 
   @doc """

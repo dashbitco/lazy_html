@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
-- Added `LazyHTML.css_paths/1` for generating queryable document-relative paths
+- Added `LazyHTML.css_path/1` for generating queryable document-relative paths
   for selections.
 
 ## [v0.1.12](https://github.com/dashbitco/lazy_html/tree/v0.1.11) (2026-07-20)
