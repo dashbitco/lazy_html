@@ -400,15 +400,10 @@ defmodule LazyHTML do
   end
 
   @doc """
-  Returns a document-relative CSS path for each selected element in `lazy_html`.
+  Returns a CSS path for each root element in `lazy_html`.
 
-  To build each path, LazyHTML walks from the selected element towards the
-  document root. At every level it records the element's qualified tag name
-  and its 1-based `:nth-child` position. The resulting path can be passed back
-  to `query/2` to find the same element in the original document or fragment.
-
-  As with `tag/1` and `nth_child/1`, text and comment nodes in the selection
-  are skipped.
+  Note that if there are text or comment root nodes, they are ignored,
+  and they have no corresponding path in the result.
 
   ## Examples
 

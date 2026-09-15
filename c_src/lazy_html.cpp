@@ -943,8 +943,10 @@ void append_css_identifier(std::string &identifier, const lxb_char_t *data,
         index == 1 && data[0] == '-' && is_ascii_digit(codepoint);
     bool control = codepoint <= 0x1F || codepoint == 0x7F;
 
-    // Lexbor's selector parser currently requires non-ASCII identifier code
-    // points to be escaped, even though CSS allows them unescaped.
+    // Lexbor's selector parser currently requires some non-ASCII identifier
+    // code points to be escaped, even though CSS allows them unescaped
+    // (see lxb_css_syntax_state_non_ascii). Instead of special casing those
+    // ranges, we simply escape all non-ASCII code points.
     if (leading_digit || digit_after_leading_hyphen || control ||
         codepoint >= 0x80) {
       append_css_codepoint_escape(identifier, codepoint);
