@@ -47,6 +47,8 @@ hyperlinks = LazyHTML.query(lazy_html, "a")
 
 LazyHTML.attribute(hyperlinks, "href")
 #=> ["https://elixir-lang.org", "https://www.erlang.org"]
+```
+
 LazyHTML also provides several high-level conveniences:
 
 - an `Inspect` implementation to pretty-print nodes
