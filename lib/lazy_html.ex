@@ -400,6 +400,29 @@ defmodule LazyHTML do
   end
 
   @doc """
+  Returns a CSS path for each root element in `lazy_html`.
+
+  Note that if there are text or comment root nodes, they are ignored,
+  and they have no corresponding path in the result.
+
+  ## Examples
+
+      iex> ~S|<main><span>first</span><span>second</span></main>|
+      ...> |> LazyHTML.from_fragment()
+      ...> |> LazyHTML.query("span")
+      ...> |> LazyHTML.css_path()
+      [
+        "main:nth-child(1) > span:nth-child(1)",
+        "main:nth-child(1) > span:nth-child(2)"
+      ]
+
+  """
+  @spec css_path(t()) :: list(String.t())
+  def css_path(%LazyHTML{} = lazy_html) do
+    LazyHTML.NIF.css_path(lazy_html)
+  end
+
+  @doc """
   Returns the text content of all nodes in `lazy_html`.
 
   ## Options
