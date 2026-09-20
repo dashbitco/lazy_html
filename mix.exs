@@ -24,46 +24,62 @@ defmodule LazyHTML.MixProject do
           "FINE_INCLUDE_DIR" => Fine.include_dir(),
           "LEXBOR_GIT_SHA" => @lexbor_git_sha
         }
-      end,
-      # Precompilation
-      make_precompiler: {:nif, CCPrecompiler},
-      make_precompiler_url: "#{@github_url}/releases/download/v#{@version}/@{artefact_filename}",
-      make_precompiler_filename: "liblazy_html",
-      make_precompiler_nif_versions: [versions: ["2.16"]],
-      cc_precompiler: [
-        # Defaults + musl
-        compilers: %{
-          {:unix, :linux} => %{
-            "x86_64-linux-gnu" => "x86_64-linux-gnu-",
-            "i686-linux-gnu" => "i686-linux-gnu-",
-            "aarch64-linux-gnu" => "aarch64-linux-gnu-",
-            "armv7l-linux-gnueabihf" => "arm-linux-gnueabihf-",
-            "riscv64-linux-gnu" => "riscv64-linux-gnu-",
-            "powerpc64le-linux-gnu" => "powerpc64le-linux-gnu-",
-            "s390x-linux-gnu" => "s390x-linux-gnu-",
-            "x86_64-linux-musl" => "x86_64-linux-musl-",
-            "aarch64-linux-musl" => "aarch64-linux-musl-"
-          },
-          {:unix, :darwin} => %{
-            "x86_64-apple-darwin" => {
-              "gcc",
-              "g++",
-              "<%= cc %> -arch x86_64",
-              "<%= cxx %> -arch x86_64"
+      end
+    ] ++ precompilation()
+  end
+
+  defp build_nif_from_source?() do
+    System.get_env("LAZY_HTML_BUILD", "false") in ~w(true 1)
+  end
+
+  # By default the NIF is fetched as a precompiled
+  # binary. Set LAZY_HTML_BUILD=true to compile it from source
+  # instead.
+  defp precompilation do
+    if build_nif_from_source?() do
+      []
+    else
+      [
+        make_precompiler: {:nif, CCPrecompiler},
+        make_precompiler_url:
+          "#{@github_url}/releases/download/v#{@version}/@{artefact_filename}",
+        make_precompiler_filename: "liblazy_html",
+        make_precompiler_nif_versions: [versions: ["2.16"]],
+        cc_precompiler: [
+          # Defaults + musl
+          compilers: %{
+            {:unix, :linux} => %{
+              "x86_64-linux-gnu" => "x86_64-linux-gnu-",
+              "i686-linux-gnu" => "i686-linux-gnu-",
+              "aarch64-linux-gnu" => "aarch64-linux-gnu-",
+              "armv7l-linux-gnueabihf" => "arm-linux-gnueabihf-",
+              "riscv64-linux-gnu" => "riscv64-linux-gnu-",
+              "powerpc64le-linux-gnu" => "powerpc64le-linux-gnu-",
+              "s390x-linux-gnu" => "s390x-linux-gnu-",
+              "x86_64-linux-musl" => "x86_64-linux-musl-",
+              "aarch64-linux-musl" => "aarch64-linux-musl-"
             },
-            "aarch64-apple-darwin" => {
-              "gcc",
-              "g++",
-              "<%= cc %> -arch arm64",
-              "<%= cxx %> -arch arm64"
+            {:unix, :darwin} => %{
+              "x86_64-apple-darwin" => {
+                "gcc",
+                "g++",
+                "<%= cc %> -arch x86_64",
+                "<%= cxx %> -arch x86_64"
+              },
+              "aarch64-apple-darwin" => {
+                "gcc",
+                "g++",
+                "<%= cc %> -arch arm64",
+                "<%= cxx %> -arch arm64"
+              }
+            },
+            {:win32, :nt} => %{
+              "x86_64-windows-msvc" => {"cl", "cl"}
             }
-          },
-          {:win32, :nt} => %{
-            "x86_64-windows-msvc" => {"cl", "cl"}
           }
-        }
+        ]
       ]
-    ]
+    end
   end
 
   def application do
