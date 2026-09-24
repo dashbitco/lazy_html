@@ -155,6 +155,10 @@ defmodule LazyHTML do
   @doc """
   Builds a lazy HTML document from an Elixir tree data structure.
 
+  > #### Validity {: .warning}
+  >
+  > The tree is expected to be valid, see `LazyHTML.Tree` for details.
+
   ## Examples
 
       iex> tree = [
