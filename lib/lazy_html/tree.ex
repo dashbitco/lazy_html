@@ -2,6 +2,17 @@ defmodule LazyHTML.Tree do
   @moduledoc """
   This module deals with HTML documents represented as an Elixir tree
   data structure.
+
+  > #### Validity {: .warning}
+  >
+  > Trees returned by `LazyHTML.to_tree/2` are always valid. If you
+  > build or change a tree yourself, you must make sure it is valid,
+  > that is, it could be produced by parsing HTML. The tree is not
+  > validated when serialized. For example, tag and attribute names
+  > must not contain whitespace, `/` or `>`, comments must not contain
+  > `-->`, and text in `<script>` or `<style>` must not contain its
+  > own end tag. Otherwise, the serialized HTML may be parsed into
+  > a different tree.
   """
 
   @type t :: list(html_node())
