@@ -201,7 +201,8 @@ void append_escaping(std::string &html, const unsigned char *data,
 }
 
 bool is_noescape_text_node(lxb_dom_node_t *node) {
-  if (node->parent != NULL) {
+  // Only HTML elements have raw text content.
+  if (node->parent != NULL && node->parent->ns == LXB_NS_HTML) {
     switch (node->parent->local_name) {
     case LXB_TAG_STYLE:
     case LXB_TAG_SCRIPT:

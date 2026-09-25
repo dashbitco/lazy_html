@@ -58,6 +58,25 @@ defmodule LazyHTML.TreeTest do
       assert LazyHTML.Tree.to_html(tree, skip_whitespace_nodes: true) ==
                "<p><span> Hello </span><span> world </span></p>"
     end
+
+    test "escapes text in style inside foreign content" do
+      html = """
+      <svg><style>&lt;/style&gt;&lt;img src=x onerror=&quot;alert(1)&quot;&gt;</style></svg>
+      <math><mi><mglyph><style>&lt;/style&gt;&lt;img&gt;</style></mglyph></mi></math>
+      """
+
+      assert LazyHTML.from_fragment(html) |> LazyHTML.to_tree() |> LazyHTML.Tree.to_html() == html
+    end
+
+    test "does not escape text in style inside HTML integration points" do
+      html = """
+      <svg><foreignObject><style>a > b {}</style></foreignObject></svg>
+      <math><mi><style>a > b {}</style></mi></math>
+      <math><annotation-xml encoding="text/html"><style>a > b {}</style></annotation-xml></math>
+      """
+
+      assert LazyHTML.from_fragment(html) |> LazyHTML.to_tree() |> LazyHTML.Tree.to_html() == html
+    end
   end
 
   describe "prereduce/3" do

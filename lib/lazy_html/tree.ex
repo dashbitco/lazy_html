@@ -70,7 +70,7 @@ defmodule LazyHTML.Tree do
     # Appending to a binary is optimised by the runtime, so this
     # approach is memory efficient.
 
-    ctx = %{skip_whitespace_nodes: opts[:skip_whitespace_nodes], escape: true}
+    ctx = %{skip_whitespace_nodes: opts[:skip_whitespace_nodes], escape: true, ns: :html}
     to_html(tree, ctx, <<>>)
   end
 
@@ -92,8 +92,11 @@ defmodule LazyHTML.Tree do
       to_html(tree, ctx, html)
     else
       html = <<html::binary, ">">>
-      escape_children = tag not in @no_escape_tags
-      html = to_html(children, %{ctx | escape: escape_children}, html)
+      ns = element_ns(tag, ctx.ns)
+      # Only HTML elements have raw text content.
+      escape_children = ns != :html or tag not in @no_escape_tags
+      children_ctx = %{ctx | escape: escape_children, ns: children_ns(tag, attrs, ns)}
+      html = to_html(children, children_ctx, html)
       html = <<html::binary, "</", tag::binary, ">">>
       to_html(tree, ctx, html)
     end
@@ -107,6 +110,30 @@ defmodule LazyHTML.Tree do
   defp to_html([{:comment, content} | tree], ctx, html) do
     to_html(tree, ctx, <<html::binary, "<!--", content::binary, "-->">>)
   end
+
+  # The tree does not store element namespaces, so we infer them the
+  # same way the HTML parser does. The :math_text namespace is used
+  # for direct children of MathML text integration points.
+
+  defp element_ns("svg", ns) when ns in [:html, :math_text], do: :svg
+  defp element_ns("math", ns) when ns in [:html, :math_text], do: :math
+  defp element_ns(tag, :math_text) when tag in ["mglyph", "malignmark"], do: :math
+  defp element_ns(_tag, :math_text), do: :html
+  defp element_ns(_tag, ns), do: ns
+
+  defp children_ns(tag, _attrs, :svg) when tag in ["foreignObject", "desc", "title"], do: :html
+
+  defp children_ns(tag, _attrs, :math) when tag in ["mi", "mo", "mn", "ms", "mtext"],
+    do: :math_text
+
+  defp children_ns("annotation-xml", attrs, :math) do
+    encoding =
+      Enum.find_value(attrs, fn {name, value} -> name == "encoding" && String.downcase(value) end)
+
+    if encoding in ["text/html", "application/xhtml+xml"], do: :html, else: :math
+  end
+
+  defp children_ns(_tag, _attrs, ns), do: ns
 
   defp append_attrs([], html), do: html
 
