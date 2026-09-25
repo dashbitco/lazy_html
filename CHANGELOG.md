@@ -4,18 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## Unreleased
+## [v0.1.13](https://github.com/dashbitco/lazy_html/tree/v0.1.13) (2026-09-25)
 
 ### Added
 
 - Added `LazyHTML.css_path/1` for generating queryable document-relative paths
-  for selections.
+  for selections
 
 ### Fixed
 
 - Fixed `to_html/2` functions to escape `<style>` and `<script>` content inside SVG and MathML (CVE-2026-92106, [GHSA-8rqp-v692-v82q](https://github.com/dashbitco/lazy_html/security/advisories/GHSA-8rqp-v692-v82q))
 
-## [v0.1.12](https://github.com/dashbitco/lazy_html/tree/v0.1.11) (2026-07-20)
+## [v0.1.12](https://github.com/dashbitco/lazy_html/tree/v0.1.12) (2026-07-20)
 
 ### Changed
 
