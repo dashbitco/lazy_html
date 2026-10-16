@@ -3,7 +3,7 @@ defmodule LazyHTMLTest do
 
   doctest LazyHTML
 
-  describe "from_document/1" do
+  describe "from_document/2" do
     test "empty" do
       lazy_html = LazyHTML.from_document("")
 
@@ -71,9 +71,21 @@ defmodule LazyHTMLTest do
              >\
              """
     end
+
+    test "with :max_depth" do
+      html = "<div><span>Hello</span></div>"
+
+      # <html>, <body>, <div> and <span>
+      assert LazyHTML.from_document(html, max_depth: 4) |> LazyHTML.to_html() ==
+               "<html><head></head><body>#{html}</body></html>"
+
+      assert_raise RuntimeError, ~r/elements nest deeper than :max_depth \(3\)/, fn ->
+        LazyHTML.from_document(html, max_depth: 3)
+      end
+    end
   end
 
-  describe "from_fragment/1" do
+  describe "from_fragment/2" do
     test "empty" do
       lazy_html = LazyHTML.from_fragment("")
 
@@ -98,6 +110,47 @@ defmodule LazyHTMLTest do
                <span>world</span>
              >\
              """
+    end
+
+    test "with :max_depth" do
+      html = "<div><span>Hello</span></div>"
+
+      assert LazyHTML.from_fragment(html, max_depth: 2) |> LazyHTML.to_html() == html
+
+      assert_raise RuntimeError, ~r/elements nest deeper than :max_depth \(1\)/, fn ->
+        LazyHTML.from_fragment(html, max_depth: 1)
+      end
+    end
+
+    test "with :max_depth counts open elements" do
+      html = String.duplicate(~S|<p>Hello<br/><img src="x"/>world</p>|, 3)
+      assert LazyHTML.from_fragment(html, max_depth: 1) |> LazyHTML.to_html() == html
+
+      # Unclosed elements stay open
+      assert_raise RuntimeError, ~r/:max_depth/, fn ->
+        LazyHTML.from_fragment("<div>Hello<div>world", max_depth: 1)
+      end
+
+      # Formatting elements count at the depth they are reopened at
+      html = "<p><b></p><div><div>Hello"
+
+      assert LazyHTML.from_fragment(html, max_depth: 3) |> LazyHTML.to_html() ==
+               "<p><b></b></p><div><div><b>Hello</b></div></div>"
+
+      assert_raise RuntimeError, ~r/:max_depth/, fn ->
+        LazyHTML.from_fragment(html, max_depth: 2)
+      end
+    end
+
+    test "with :max_depth stops parsing deeply nested input" do
+      assert_raise RuntimeError, ~r/:max_depth/, fn ->
+        LazyHTML.from_fragment(String.duplicate("<div>", 100_000), max_depth: 512)
+      end
+    end
+
+    test "raises on an invalid :max_depth" do
+      assert_raise ArgumentError, fn -> LazyHTML.from_fragment("", max_depth: -1) end
+      assert_raise ArgumentError, fn -> LazyHTML.from_fragment("", depth: 1) end
     end
   end
 

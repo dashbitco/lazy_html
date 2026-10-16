@@ -89,7 +89,57 @@ ERL_NIF_TERM make_new_binary(ErlNifEnv *env, size_t size,
   return term;
 }
 
-ExLazyHTML from_document(ErlNifEnv *env, ErlNifBinary html) {
+// Wraps the tree builder's token callback and stops tokenizing once more
+// than max_open elements are open. Tree construction walks the stack of open
+// elements for many tokens, so the limit bounds the work per token.
+class OpenElementsLimit {
+public:
+  OpenElementsLimit(lxb_html_document_t *document, size_t max_open)
+      : parser(static_cast<lxb_html_parser_t *>(document->dom_document.parser)),
+        callback(parser->tkz->callback_token_done),
+        ctx(parser->tkz->callback_token_ctx), max_open(max_open) {
+    lxb_html_tokenizer_callback_token_done_set(parser->tkz, check, this);
+  }
+
+  ~OpenElementsLimit() {
+    lxb_html_tokenizer_callback_token_done_set(parser->tkz, callback, ctx);
+  }
+
+  OpenElementsLimit(const OpenElementsLimit &) = delete;
+  OpenElementsLimit &operator=(const OpenElementsLimit &) = delete;
+
+  bool exceeded = false;
+
+private:
+  static lxb_html_token_t *check(lxb_html_tokenizer_t *tkz,
+                                 lxb_html_token_t *token, void *ctx) {
+    auto limit = static_cast<OpenElementsLimit *>(ctx);
+
+    token = limit->callback(tkz, token, limit->ctx);
+
+    if (token != NULL &&
+        limit->parser->tree->open_elements->length > limit->max_open) {
+      limit->exceeded = true;
+      return NULL;
+    }
+
+    return token;
+  }
+
+  lxb_html_parser_t *parser;
+  lxb_html_tokenizer_token_f callback;
+  void *ctx;
+  size_t max_open;
+};
+
+void throw_max_depth_exceeded(uint64_t max_depth) {
+  throw std::runtime_error("failed to parse html, elements nest deeper than "
+                           ":max_depth (" +
+                           std::to_string(max_depth) + ")");
+}
+
+ExLazyHTML from_document(ErlNifEnv *env, ErlNifBinary html,
+                         std::optional<uint64_t> max_depth) {
   auto document = lxb_html_document_create();
   if (document == NULL) {
     throw std::runtime_error("failed to create document");
@@ -97,10 +147,32 @@ ExLazyHTML from_document(ErlNifEnv *env, ErlNifBinary html) {
   auto document_guard =
       ScopeGuard([&]() { lxb_html_document_destroy(document); });
 
-  auto status = lxb_html_document_parse(document, html.data, html.size);
+  auto status = lxb_html_document_parse_chunk_begin(document);
   if (status != LXB_STATUS_OK) {
     throw std::runtime_error("failed to parse html document");
   }
+
+  auto limit = std::optional<OpenElementsLimit>();
+  if (max_depth) {
+    // <html> is at depth 1.
+    limit.emplace(document, *max_depth);
+  }
+
+  status = lxb_html_document_parse_chunk(document, html.data, html.size);
+  if (status == LXB_STATUS_OK) {
+    // Ending the parse emits the last text token.
+    status = lxb_html_document_parse_chunk_end(document);
+  }
+
+  if (limit && limit->exceeded) {
+    throw_max_depth_exceeded(*max_depth);
+  }
+
+  if (status != LXB_STATUS_OK) {
+    throw std::runtime_error("failed to parse html document");
+  }
+
+  limit.reset();
 
   auto document_ref = std::make_shared<DocumentRef>(document, false);
   document_guard.deactivate();
@@ -116,7 +188,8 @@ ExLazyHTML from_document(ErlNifEnv *env, ErlNifBinary html) {
 
 FINE_NIF(from_document, ERL_NIF_DIRTY_JOB_CPU_BOUND);
 
-ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html) {
+ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html,
+                         std::optional<uint64_t> max_depth) {
   auto document = lxb_html_document_create();
   if (document == NULL) {
     throw std::runtime_error("failed to create document");
@@ -128,11 +201,35 @@ ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html) {
       &document->dom_document, reinterpret_cast<const lxb_char_t *>("body"), 4,
       NULL);
 
-  auto parse_root =
-      lxb_html_document_parse_fragment(document, context, html.data, html.size);
+  auto status = lxb_html_document_parse_fragment_chunk_begin(document, context);
+  if (status != LXB_STATUS_OK) {
+    throw std::runtime_error("failed to parse html fragment");
+  }
+
+  auto limit = std::optional<OpenElementsLimit>();
+  if (max_depth) {
+    // The fragment's root <html> element stays open below the parsed nodes.
+    limit.emplace(document, *max_depth + 1);
+  }
+
+  lxb_dom_node_t *parse_root = NULL;
+
+  status =
+      lxb_html_document_parse_fragment_chunk(document, html.data, html.size);
+  if (status == LXB_STATUS_OK) {
+    // Ending the parse emits the last text token.
+    parse_root = lxb_html_document_parse_fragment_chunk_end(document);
+  }
+
+  if (limit && limit->exceeded) {
+    throw_max_depth_exceeded(*max_depth);
+  }
+
   if (parse_root == NULL) {
     throw std::runtime_error("failed to parse html fragment");
   }
+
+  limit.reset();
 
   auto document_ref = std::make_shared<DocumentRef>(document, true);
   document_guard.deactivate();

@@ -20,7 +20,15 @@ defmodule LazyHTML do
   This function expects a complete document, therefore if either of
   `<html>`, `<head>` or `<body>` tags is missing, it will be added,
   which matches the usual browser behaviour. To parse a part of an
-  HTML document, use `from_fragment/1` instead.
+  HTML document, use `from_fragment/2` instead.
+
+  ## Options
+
+    * `:max_depth` - raises if elements nest deeper than this while
+      parsing, where `<html>` is at depth 1. Parsing does work
+      proportional to the nesting depth for many tags, so input that
+      nests thousands of elements takes time quadratic in its size.
+      Set this when parsing untrusted input. Defaults to no limit.
 
   ## Examples
 
@@ -39,16 +47,25 @@ defmodule LazyHTML do
       >
 
   """
-  @spec from_document(String.t()) :: t()
-  def from_document(html) when is_binary(html) do
-    LazyHTML.NIF.from_document(html)
+  @spec from_document(String.t(), keyword()) :: t()
+  def from_document(html, opts \\ []) when is_binary(html) do
+    opts = Keyword.validate!(opts, [:max_depth])
+    LazyHTML.NIF.from_document(html, opts[:max_depth])
   end
 
   @doc """
   Parses a segment of an HTML document.
 
-  As opposed to `from_document/1`, this function does not expect a full
+  As opposed to `from_document/2`, this function does not expect a full
   document and does not add any extra tags.
+
+  ## Options
+
+    * `:max_depth` - raises if elements nest deeper than this while
+      parsing, where the top-level nodes are at depth 1. Parsing does
+      work proportional to the nesting depth for many tags, so input
+      that nests thousands of elements takes time quadratic in its
+      size. Set this when parsing untrusted input. Defaults to no limit.
 
   ## Examples
 
@@ -71,9 +88,10 @@ defmodule LazyHTML do
       >
 
   """
-  @spec from_fragment(String.t()) :: t()
-  def from_fragment(html) when is_binary(html) do
-    LazyHTML.NIF.from_fragment(html)
+  @spec from_fragment(String.t(), keyword()) :: t()
+  def from_fragment(html, opts \\ []) when is_binary(html) do
+    opts = Keyword.validate!(opts, [:max_depth])
+    LazyHTML.NIF.from_fragment(html, opts[:max_depth])
   end
 
   @doc ~S'''
