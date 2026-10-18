@@ -5,14 +5,22 @@ C_SRC := $(shell pwd)/c_src
 CPPFLAGS := -shared -fPIC -fvisibility=hidden -std=c++17 -Wall -Wextra -Wno-unused-parameter -Wno-comment
 CPPFLAGS += -I$(ERTS_INCLUDE_DIR) -I$(FINE_INCLUDE_DIR)
 
-LEXBOR_DIR := $(shell pwd)/_build/c/third_party/lexbor/$(LEXBOR_GIT_SHA)
-ifdef CC_PRECOMPILER_CURRENT_TARGET
-	LEXBOR_BUILD_DIR := $(LEXBOR_DIR)/build-$(CC_PRECOMPILER_CURRENT_TARGET)
+# Set LAZY_HTML_SYSTEM_LEXBOR=true to link against the system-wide lexbor
+# library, instead of downloading and building a vendored copy.
+SYSTEM_LEXBOR := $(filter true 1,$(LAZY_HTML_SYSTEM_LEXBOR))
+
+ifdef SYSTEM_LEXBOR
+	LDLIBS += -llexbor
 else
-	LEXBOR_BUILD_DIR := $(LEXBOR_DIR)/build
+	LEXBOR_DIR := $(shell pwd)/_build/c/third_party/lexbor/$(LEXBOR_GIT_SHA)
+	ifdef CC_PRECOMPILER_CURRENT_TARGET
+		LEXBOR_BUILD_DIR := $(LEXBOR_DIR)/build-$(CC_PRECOMPILER_CURRENT_TARGET)
+	else
+		LEXBOR_BUILD_DIR := $(LEXBOR_DIR)/build
+	endif
+	LEXBOR_LIB := $(LEXBOR_BUILD_DIR)/liblexbor_static.a
+	CPPFLAGS += -I$(LEXBOR_DIR)/source
 endif
-LEXBOR_LIB := $(LEXBOR_BUILD_DIR)/liblexbor_static.a
-CPPFLAGS += -I$(LEXBOR_DIR)/source
 
 ifdef DEBUG
 	CPPFLAGS += -g
@@ -35,8 +43,9 @@ all: $(NIF_PATH)
 
 $(NIF_PATH): $(SOURCES) $(LEXBOR_LIB)
 	@ mkdir -p $(PRIV_DIR)
-	$(CXX) $(CPPFLAGS) $(SOURCES) $(LEXBOR_LIB) -o $(NIF_PATH)
+	$(CXX) $(CPPFLAGS) $(SOURCES) $(LEXBOR_LIB) $(LDLIBS) -o $(NIF_PATH)
 
+ifndef SYSTEM_LEXBOR
 $(LEXBOR_LIB): $(LEXBOR_DIR)
 	@ mkdir -p $(LEXBOR_BUILD_DIR)
 	# We explicitly specify CMAKE_OSX_DEPLOYMENT_TARGET, otherwise cmake
@@ -51,3 +60,4 @@ $(LEXBOR_DIR):
 		cd $(LEXBOR_DIR) && \
 		git fetch --depth 1 origin $(LEXBOR_GIT_SHA) && \
 		git checkout $(LEXBOR_GIT_SHA)
+endif
