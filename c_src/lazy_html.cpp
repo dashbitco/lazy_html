@@ -160,7 +160,6 @@ ExLazyHTML from_document(ErlNifEnv *env, ErlNifBinary html,
 
   status = lxb_html_document_parse_chunk(document, html.data, html.size);
   if (status == LXB_STATUS_OK) {
-    // Ending the parse emits the last text token.
     status = lxb_html_document_parse_chunk_end(document);
   }
 
@@ -208,7 +207,8 @@ ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html,
 
   auto limit = std::optional<OpenElementsLimit>();
   if (max_depth) {
-    // The fragment's root <html> element stays open below the parsed nodes.
+    // The stack of open elements always has the fragment's <html> root and we
+    // do not count it towards the limit.
     limit.emplace(document, *max_depth + 1);
   }
 
@@ -217,7 +217,6 @@ ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html,
   status =
       lxb_html_document_parse_fragment_chunk(document, html.data, html.size);
   if (status == LXB_STATUS_OK) {
-    // Ending the parse emits the last text token.
     parse_root = lxb_html_document_parse_fragment_chunk_end(document);
   }
 
