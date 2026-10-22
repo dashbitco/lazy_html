@@ -83,6 +83,19 @@ defmodule LazyHTMLTest do
         LazyHTML.from_document(html, max_depth: 3)
       end
     end
+
+    test "with :max_memory" do
+      html = "<div><span>Hello</span></div>"
+
+      assert LazyHTML.from_document(html, max_memory: 100_000) |> LazyHTML.to_html() ==
+               "<html><head></head><body>#{html}</body></html>"
+
+      assert_raise RuntimeError,
+                   ~r/the document takes more memory than :max_memory \(100 bytes\)/,
+                   fn ->
+                     LazyHTML.from_document(html, max_memory: 100)
+                   end
+    end
   end
 
   describe "from_fragment/2" do
@@ -151,6 +164,77 @@ defmodule LazyHTMLTest do
     test "raises on an invalid :max_depth" do
       assert_raise ArgumentError, fn -> LazyHTML.from_fragment("", max_depth: -1) end
       assert_raise ArgumentError, fn -> LazyHTML.from_fragment("", depth: 1) end
+    end
+
+    test "with :max_memory" do
+      html = "<div><span>Hello</span></div>"
+
+      assert LazyHTML.from_fragment(html, max_memory: 100_000) |> LazyHTML.to_html() == html
+      assert LazyHTML.from_fragment("", max_memory: 0) |> LazyHTML.to_html() == ""
+
+      assert_raise RuntimeError,
+                   ~r/the document takes more memory than :max_memory \(100 bytes\)/,
+                   fn ->
+                     LazyHTML.from_fragment(html, max_memory: 100)
+                   end
+    end
+
+    test "with :max_memory counts reopened formatting elements" do
+      # Every paragraph reopens the formatting elements the first one left
+      # open, so each one creates 100 elements
+      html =
+        "<p>" <>
+          Enum.map_join(1..100, &~s|<b class="#{&1}">|) <>
+          "</p>" <> String.duplicate("<p>x</p>", 1000)
+
+      assert_raise RuntimeError, ~r/:max_memory/, fn ->
+        LazyHTML.from_fragment(html, max_memory: 1_000_000)
+      end
+    end
+
+    test "with :max_memory counts copied attributes" do
+      # Every paragraph reopens the formatting element with a copy of its
+      # attributes
+      html =
+        ~s|<p><b title="#{String.duplicate("x", 10_000)}"></p>| <>
+          String.duplicate("<p>x</p>", 1000)
+
+      assert_raise RuntimeError, ~r/:max_memory/, fn ->
+        LazyHTML.from_fragment(html, max_memory: 1_000_000)
+      end
+    end
+
+    test "with :max_memory counts tag and attribute names" do
+      name = String.duplicate("a", 100_000)
+
+      for html <- ["<div #{name}></div>", "<#{name}></#{name}>", "</#{name}>"] do
+        assert_raise RuntimeError, ~r/:max_memory/, fn ->
+          LazyHTML.from_fragment(html, max_memory: 10_000)
+        end
+
+        assert_raise RuntimeError, ~r/:max_memory/, fn ->
+          LazyHTML.from_document(html, max_memory: 10_000)
+        end
+      end
+    end
+
+    test "with :max_depth and :max_memory" do
+      html = "<div><span>Hello</span></div>"
+
+      assert LazyHTML.from_fragment(html, max_depth: 2, max_memory: 100_000)
+             |> LazyHTML.to_html() == html
+
+      assert_raise RuntimeError, ~r/:max_depth/, fn ->
+        LazyHTML.from_fragment(html, max_depth: 1, max_memory: 100_000)
+      end
+
+      assert_raise RuntimeError, ~r/:max_memory/, fn ->
+        LazyHTML.from_fragment(html, max_depth: 2, max_memory: 100)
+      end
+    end
+
+    test "raises on an invalid :max_memory" do
+      assert_raise ArgumentError, fn -> LazyHTML.from_fragment("", max_memory: -1) end
     end
   end
 

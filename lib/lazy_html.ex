@@ -30,6 +30,16 @@ defmodule LazyHTML do
       nests thousands of elements takes time quadratic in its size.
       Set this when parsing untrusted input. Defaults to no limit.
 
+    * `:max_memory` - raises if the document's nodes, attributes, text
+      and tag and attribute names take more than this many bytes of
+      memory while parsing. On 64-bit systems typical HTML takes up to
+      15 times its size, and markup with a tag every few bytes, such as
+      `<p>x` repeated, up to 80 times. Some markup makes the parser
+      create many elements for each tag, for example formatting
+      elements that are reopened for every following paragraph, so a
+      small input can produce a much larger document. Set this when
+      parsing untrusted input. Defaults to no limit.
+
   ## Examples
 
       iex> LazyHTML.from_document(~S|<html><head></head><body>Hello world!</body></html>|)
@@ -49,8 +59,8 @@ defmodule LazyHTML do
   """
   @spec from_document(String.t(), keyword()) :: t()
   def from_document(html, opts \\ []) when is_binary(html) do
-    opts = Keyword.validate!(opts, [:max_depth])
-    LazyHTML.NIF.from_document(html, opts[:max_depth])
+    opts = Keyword.validate!(opts, [:max_depth, :max_memory])
+    LazyHTML.NIF.from_document(html, opts[:max_depth], opts[:max_memory])
   end
 
   @doc """
@@ -66,6 +76,16 @@ defmodule LazyHTML do
       work proportional to the nesting depth for many tags, so input
       that nests thousands of elements takes time quadratic in its
       size. Set this when parsing untrusted input. Defaults to no limit.
+
+    * `:max_memory` - raises if the fragment's nodes, attributes, text
+      and tag and attribute names take more than this many bytes of
+      memory while parsing. On 64-bit systems typical HTML takes up to
+      15 times its size, and markup with a tag every few bytes, such as
+      `<p>x` repeated, up to 80 times. Some markup makes the parser
+      create many elements for each tag, for example formatting
+      elements that are reopened for every following paragraph, so a
+      small input can produce a much larger fragment. Set this when
+      parsing untrusted input. Defaults to no limit.
 
   ## Examples
 
@@ -90,8 +110,8 @@ defmodule LazyHTML do
   """
   @spec from_fragment(String.t(), keyword()) :: t()
   def from_fragment(html, opts \\ []) when is_binary(html) do
-    opts = Keyword.validate!(opts, [:max_depth])
-    LazyHTML.NIF.from_fragment(html, opts[:max_depth])
+    opts = Keyword.validate!(opts, [:max_depth, :max_memory])
+    LazyHTML.NIF.from_fragment(html, opts[:max_depth], opts[:max_memory])
   end
 
   @doc ~S'''
