@@ -3,6 +3,7 @@
 #include <erl_nif.h>
 #include <fine.hpp>
 #include <functional>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
@@ -94,7 +95,7 @@ ERL_NIF_TERM make_new_binary(ErlNifEnv *env, size_t size,
 // elements for many tokens, so the limit bounds the work per token.
 class OpenElementsLimit {
 public:
-  OpenElementsLimit(lxb_html_document_t *document, size_t max_open)
+  OpenElementsLimit(lxb_html_document_t *document, uint64_t max_open)
       : parser(static_cast<lxb_html_parser_t *>(document->dom_document.parser)),
         callback(parser->tkz->callback_token_done),
         ctx(parser->tkz->callback_token_ctx), max_open(max_open) {
@@ -129,7 +130,7 @@ private:
   lxb_html_parser_t *parser;
   lxb_html_tokenizer_token_f callback;
   void *ctx;
-  size_t max_open;
+  uint64_t max_open;
 };
 
 void throw_max_depth_exceeded(uint64_t max_depth) {
@@ -209,7 +210,10 @@ ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html,
   if (max_depth) {
     // The stack of open elements always has the fragment's <html> root and we
     // do not count it towards the limit.
-    limit.emplace(document, *max_depth + 1);
+    auto max_open = *max_depth < std::numeric_limits<uint64_t>::max()
+                        ? *max_depth + 1
+                        : *max_depth;
+    limit.emplace(document, max_open);
   }
 
   lxb_dom_node_t *parse_root = NULL;

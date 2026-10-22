@@ -148,6 +148,16 @@ defmodule LazyHTMLTest do
       end
     end
 
+    test "with the largest :max_depth" do
+      max_depth = 18_446_744_073_709_551_615
+      html = "<div><span>Hello</span></div>"
+
+      assert LazyHTML.from_fragment(html, max_depth: max_depth) |> LazyHTML.to_html() == html
+
+      assert LazyHTML.from_document(html, max_depth: max_depth) |> LazyHTML.to_html() ==
+               "<html><head></head><body>#{html}</body></html>"
+    end
+
     test "raises on an invalid :max_depth" do
       assert_raise ArgumentError, fn -> LazyHTML.from_fragment("", max_depth: -1) end
       assert_raise ArgumentError, fn -> LazyHTML.from_fragment("", depth: 1) end
