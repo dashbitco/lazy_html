@@ -96,6 +96,36 @@ defmodule LazyHTMLTest do
                      LazyHTML.from_document(html, max_memory: 100)
                    end
     end
+
+    test "with :max_attributes" do
+      html = ~S|<div id="a" class="b" title="c">Hello</div>|
+
+      assert LazyHTML.from_document(html, max_attributes: 3) |> LazyHTML.to_html() ==
+               "<html><head></head><body>#{html}</body></html>"
+
+      assert_raise RuntimeError, ~r/a tag has more attributes than :max_attributes \(2\)/, fn ->
+        LazyHTML.from_document(html, max_attributes: 2)
+      end
+    end
+
+    test "with :max_attributes counts attributes repeated <html> and <body> tags add" do
+      assert LazyHTML.from_document("<html a><html a><body b><body b>", max_attributes: 1)
+             |> LazyHTML.to_html() == ~S|<html a=""><head></head><body b=""></body></html>|
+
+      for html <- ["<html a><html b>", "<body a><body b>"] do
+        assert_raise RuntimeError,
+                     ~r/repeated <html> or <body> tags give an element more attributes than :max_attributes \(1\)/,
+                     fn -> LazyHTML.from_document(html, max_attributes: 1) end
+      end
+    end
+
+    test "with :max_attributes does not count doctype identifiers" do
+      html =
+        ~S|<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">|
+
+      assert LazyHTML.from_document(html, max_attributes: 0) |> LazyHTML.to_tree() ==
+               LazyHTML.from_document(html) |> LazyHTML.to_tree()
+    end
   end
 
   describe "from_fragment/2" do
@@ -235,6 +265,67 @@ defmodule LazyHTMLTest do
 
     test "raises on an invalid :max_memory" do
       assert_raise ArgumentError, fn -> LazyHTML.from_fragment("", max_memory: -1) end
+    end
+
+    test "with :max_attributes" do
+      html = ~S|<div id="a" class="b" title="c">Hello</div>|
+
+      assert LazyHTML.from_fragment(html, max_attributes: 3) |> LazyHTML.to_html() == html
+
+      assert LazyHTML.from_fragment("<p>Hello</p>", max_attributes: 0) |> LazyHTML.to_html() ==
+               "<p>Hello</p>"
+
+      assert_raise RuntimeError, ~r/a tag has more attributes than :max_attributes \(2\)/, fn ->
+        LazyHTML.from_fragment(html, max_attributes: 2)
+      end
+    end
+
+    test "with :max_attributes counts duplicate names and end tags" do
+      assert_raise RuntimeError, ~r/:max_attributes/, fn ->
+        LazyHTML.from_fragment("<div a a a></div>", max_attributes: 2)
+      end
+
+      assert_raise RuntimeError, ~r/:max_attributes/, fn ->
+        LazyHTML.from_fragment("<div></div a b c>", max_attributes: 2)
+      end
+    end
+
+    test "with :max_attributes counts attributes repeated <html> tags add" do
+      assert LazyHTML.from_fragment("<html a><html a>Hello", max_attributes: 1)
+             |> LazyHTML.to_html() == "Hello"
+
+      assert_raise RuntimeError, ~r/repeated <html> or <body> tags/, fn ->
+        LazyHTML.from_fragment("<html a><html b>Hello", max_attributes: 1)
+      end
+    end
+
+    test "with :max_attributes stops parsing tags with many attributes" do
+      attributes = Enum.map(1..25_000, &"a#{&1}")
+
+      assert_raise RuntimeError, ~r/:max_attributes/, fn ->
+        LazyHTML.from_fragment("<div #{Enum.join(attributes, " ")}>", max_attributes: 256)
+      end
+
+      assert_raise RuntimeError, ~r/:max_attributes/, fn ->
+        LazyHTML.from_fragment(Enum.map_join(attributes, &"<html #{&1}>"), max_attributes: 256)
+      end
+    end
+
+    test "with all limits" do
+      html = ~S|<div class="a"><span>Hello</span></div>|
+      opts = [max_depth: 2, max_memory: 100_000, max_attributes: 1]
+
+      assert LazyHTML.from_fragment(html, opts) |> LazyHTML.to_html() == html
+
+      for {key, value} <- [max_depth: 1, max_memory: 100, max_attributes: 0] do
+        assert_raise RuntimeError, ~r/:#{key}/, fn ->
+          LazyHTML.from_fragment(html, Keyword.put(opts, key, value))
+        end
+      end
+    end
+
+    test "raises on an invalid :max_attributes" do
+      assert_raise ArgumentError, fn -> LazyHTML.from_fragment("", max_attributes: -1) end
     end
   end
 

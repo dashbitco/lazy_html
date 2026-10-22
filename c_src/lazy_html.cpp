@@ -164,22 +164,36 @@ private:
   HashUsage attrs;
 };
 
+// Returns whether a linked list of attributes is longer than max.
+template <typename T> bool more_than(T *attr, uint64_t max) {
+  for (uint64_t count = 0; attr != NULL; attr = attr->next) {
+    if (++count > max) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Wraps the tree builder's token callback and stops tokenizing once a limit
 // is exceeded. Tree construction walks the stack of open elements for many
 // tokens, so the depth limit bounds the work per token. A single token can
 // also create many nodes, for example when reopening formatting elements, so
-// the memory limit bounds what the document takes.
+// the memory limit bounds what the document takes. The tree builder compares
+// every attribute it adds to an element with the ones the element already
+// has, so the attribute limit bounds the work per attribute.
 class ParseLimits {
 public:
-  enum class Exceeded { none, depth, memory };
+  enum class Exceeded { none, depth, memory, attributes, merged_attributes };
 
   ParseLimits(lxb_html_document_t *document, std::optional<uint64_t> max_open,
-              std::optional<uint64_t> max_memory)
+              std::optional<uint64_t> max_memory,
+              std::optional<uint64_t> max_attributes)
       : parser(static_cast<lxb_html_parser_t *>(document->dom_document.parser)),
         callback(parser->tkz->callback_token_done),
         ctx(parser->tkz->callback_token_ctx), max_open(max_open),
-        max_memory(max_memory), memory(&document->dom_document),
-        initial_memory(memory.bytes()) {
+        max_memory(max_memory), max_attributes(max_attributes),
+        memory(&document->dom_document), initial_memory(memory.bytes()) {
     lxb_html_tokenizer_callback_token_done_set(parser->tkz, check, this);
   }
 
@@ -196,6 +210,21 @@ private:
   static lxb_html_token_t *check(lxb_html_tokenizer_t *tkz,
                                  lxb_html_token_t *token, void *ctx) {
     auto limits = static_cast<ParseLimits *>(ctx);
+    auto merges_attributes = false;
+
+    // Doctype tokens keep their name and identifiers as attributes.
+    if (limits->max_attributes && token->tag_id != LXB_TAG__EM_DOCTYPE) {
+      if (more_than(token->attr_first, *limits->max_attributes)) {
+        limits->exceeded = Exceeded::attributes;
+        return NULL;
+      }
+
+      // The tree builder adds the attributes of another <html> or <body>
+      // start tag to the element that is already open.
+      merges_attributes =
+          (token->type & LXB_HTML_TOKEN_TYPE_CLOSE) == 0 &&
+          (token->tag_id == LXB_TAG_HTML || token->tag_id == LXB_TAG_BODY);
+    }
 
     token = limits->callback(tkz, token, limits->ctx);
 
@@ -215,6 +244,20 @@ private:
       return NULL;
     }
 
+    if (merges_attributes) {
+      auto open_elements = limits->parser->tree->open_elements;
+
+      // <html> and <body> are the first two open elements.
+      for (size_t i = 0; i < open_elements->length && i < 2; i++) {
+        auto element = lxb_dom_interface_element(open_elements->list[i]);
+
+        if (more_than(element->first_attr, *limits->max_attributes)) {
+          limits->exceeded = Exceeded::merged_attributes;
+          return NULL;
+        }
+      }
+    }
+
     return token;
   }
 
@@ -223,13 +266,15 @@ private:
   void *ctx;
   std::optional<uint64_t> max_open;
   std::optional<uint64_t> max_memory;
+  std::optional<uint64_t> max_attributes;
   DocumentMemory memory;
   uint64_t initial_memory;
 };
 
 void throw_limit_exceeded(ParseLimits::Exceeded exceeded,
                           std::optional<uint64_t> max_depth,
-                          std::optional<uint64_t> max_memory) {
+                          std::optional<uint64_t> max_memory,
+                          std::optional<uint64_t> max_attributes) {
   switch (exceeded) {
   case ParseLimits::Exceeded::none:
     return;
@@ -243,12 +288,24 @@ void throw_limit_exceeded(ParseLimits::Exceeded exceeded,
     throw std::runtime_error("failed to parse html, the document takes more "
                              "memory than :max_memory (" +
                              std::to_string(*max_memory) + " bytes)");
+
+  case ParseLimits::Exceeded::attributes:
+    throw std::runtime_error("failed to parse html, a tag has more attributes "
+                             "than :max_attributes (" +
+                             std::to_string(*max_attributes) + ")");
+
+  case ParseLimits::Exceeded::merged_attributes:
+    throw std::runtime_error(
+        "failed to parse html, repeated <html> or <body> tags give an element "
+        "more attributes than :max_attributes (" +
+        std::to_string(*max_attributes) + ")");
   }
 }
 
 ExLazyHTML from_document(ErlNifEnv *env, ErlNifBinary html,
                          std::optional<uint64_t> max_depth,
-                         std::optional<uint64_t> max_memory) {
+                         std::optional<uint64_t> max_memory,
+                         std::optional<uint64_t> max_attributes) {
   auto document = lxb_html_document_create();
   if (document == NULL) {
     throw std::runtime_error("failed to create document");
@@ -262,9 +319,9 @@ ExLazyHTML from_document(ErlNifEnv *env, ErlNifBinary html,
   }
 
   auto limits = std::optional<ParseLimits>();
-  if (max_depth || max_memory) {
+  if (max_depth || max_memory || max_attributes) {
     // <html> is at depth 1.
-    limits.emplace(document, max_depth, max_memory);
+    limits.emplace(document, max_depth, max_memory, max_attributes);
   }
 
   status = lxb_html_document_parse_chunk(document, html.data, html.size);
@@ -273,7 +330,8 @@ ExLazyHTML from_document(ErlNifEnv *env, ErlNifBinary html,
   }
 
   if (limits) {
-    throw_limit_exceeded(limits->exceeded, max_depth, max_memory);
+    throw_limit_exceeded(limits->exceeded, max_depth, max_memory,
+                         max_attributes);
   }
 
   if (status != LXB_STATUS_OK) {
@@ -298,7 +356,8 @@ FINE_NIF(from_document, ERL_NIF_DIRTY_JOB_CPU_BOUND);
 
 ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html,
                          std::optional<uint64_t> max_depth,
-                         std::optional<uint64_t> max_memory) {
+                         std::optional<uint64_t> max_memory,
+                         std::optional<uint64_t> max_attributes) {
   auto document = lxb_html_document_create();
   if (document == NULL) {
     throw std::runtime_error("failed to create document");
@@ -316,14 +375,14 @@ ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html,
   }
 
   auto limits = std::optional<ParseLimits>();
-  if (max_depth || max_memory) {
+  if (max_depth || max_memory || max_attributes) {
     // The stack of open elements always has the fragment's <html> root and we
     // do not count it towards the limit.
     auto max_open = std::optional<uint64_t>();
     if (max_depth) {
       max_open = *max_depth + 1;
     }
-    limits.emplace(document, max_open, max_memory);
+    limits.emplace(document, max_open, max_memory, max_attributes);
   }
 
   lxb_dom_node_t *parse_root = NULL;
@@ -335,7 +394,8 @@ ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html,
   }
 
   if (limits) {
-    throw_limit_exceeded(limits->exceeded, max_depth, max_memory);
+    throw_limit_exceeded(limits->exceeded, max_depth, max_memory,
+                         max_attributes);
   }
 
   if (parse_root == NULL) {

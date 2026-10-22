@@ -24,11 +24,15 @@ defmodule LazyHTML do
 
   ## Options
 
+  These options bound the work parsing does and the memory the result
+  takes, and default to no limit. Set all of them when parsing untrusted
+  input, and limit its size too: the parser's own working memory, such as
+  its list of parse errors, isn't counted and grows with the input.
+
     * `:max_depth` - raises if elements nest deeper than this while
       parsing, where `<html>` is at depth 1. Parsing does work
       proportional to the nesting depth for many tags, so input that
       nests thousands of elements takes time quadratic in its size.
-      Set this when parsing untrusted input. Defaults to no limit.
 
     * `:max_memory` - raises if the document's nodes, attributes, text
       and tag and attribute names take more than this many bytes of
@@ -37,8 +41,14 @@ defmodule LazyHTML do
       `<p>x` repeated, up to 80 times. Some markup makes the parser
       create many elements for each tag, for example formatting
       elements that are reopened for every following paragraph, so a
-      small input can produce a much larger document. Set this when
-      parsing untrusted input. Defaults to no limit.
+      small input can produce a much larger document.
+
+    * `:max_attributes` - raises if a tag has more attributes than
+      this, counting duplicate names, or if repeated `<html>` or
+      `<body>` tags give that element more. Parsing compares every
+      attribute with the ones before it on the same element, so an
+      element with thousands of attributes takes time quadratic in
+      their number.
 
   ## Examples
 
@@ -59,8 +69,14 @@ defmodule LazyHTML do
   """
   @spec from_document(String.t(), keyword()) :: t()
   def from_document(html, opts \\ []) when is_binary(html) do
-    opts = Keyword.validate!(opts, [:max_depth, :max_memory])
-    LazyHTML.NIF.from_document(html, opts[:max_depth], opts[:max_memory])
+    opts = Keyword.validate!(opts, [:max_depth, :max_memory, :max_attributes])
+
+    LazyHTML.NIF.from_document(
+      html,
+      opts[:max_depth],
+      opts[:max_memory],
+      opts[:max_attributes]
+    )
   end
 
   @doc """
@@ -71,11 +87,16 @@ defmodule LazyHTML do
 
   ## Options
 
+  These options bound the work parsing does and the memory the result
+  takes, and default to no limit. Set all of them when parsing untrusted
+  input, and limit its size too: the parser's own working memory, such as
+  its list of parse errors, isn't counted and grows with the input.
+
     * `:max_depth` - raises if elements nest deeper than this while
       parsing, where the top-level nodes are at depth 1. Parsing does
       work proportional to the nesting depth for many tags, so input
       that nests thousands of elements takes time quadratic in its
-      size. Set this when parsing untrusted input. Defaults to no limit.
+      size.
 
     * `:max_memory` - raises if the fragment's nodes, attributes, text
       and tag and attribute names take more than this many bytes of
@@ -84,8 +105,14 @@ defmodule LazyHTML do
       `<p>x` repeated, up to 80 times. Some markup makes the parser
       create many elements for each tag, for example formatting
       elements that are reopened for every following paragraph, so a
-      small input can produce a much larger fragment. Set this when
-      parsing untrusted input. Defaults to no limit.
+      small input can produce a much larger fragment.
+
+    * `:max_attributes` - raises if a tag has more attributes than
+      this, counting duplicate names, or if repeated `<html>` or
+      `<body>` tags give that element more. Parsing compares every
+      attribute with the ones before it on the same element, so an
+      element with thousands of attributes takes time quadratic in
+      their number.
 
   ## Examples
 
@@ -110,8 +137,14 @@ defmodule LazyHTML do
   """
   @spec from_fragment(String.t(), keyword()) :: t()
   def from_fragment(html, opts \\ []) when is_binary(html) do
-    opts = Keyword.validate!(opts, [:max_depth, :max_memory])
-    LazyHTML.NIF.from_fragment(html, opts[:max_depth], opts[:max_memory])
+    opts = Keyword.validate!(opts, [:max_depth, :max_memory, :max_attributes])
+
+    LazyHTML.NIF.from_fragment(
+      html,
+      opts[:max_depth],
+      opts[:max_memory],
+      opts[:max_attributes]
+    )
   end
 
   @doc ~S'''
