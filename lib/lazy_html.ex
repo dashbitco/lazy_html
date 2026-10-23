@@ -50,6 +50,10 @@ defmodule LazyHTML do
       element with thousands of attributes takes time quadratic in
       their number.
 
+    * `:timeout` - raises if parsing takes longer than this many
+      milliseconds. It's checked every 64 tokens, so set the other
+      limits too to keep the work for each token small.
+
   ## Examples
 
       iex> LazyHTML.from_document(~S|<html><head></head><body>Hello world!</body></html>|)
@@ -69,13 +73,14 @@ defmodule LazyHTML do
   """
   @spec from_document(String.t(), keyword()) :: t()
   def from_document(html, opts \\ []) when is_binary(html) do
-    opts = Keyword.validate!(opts, [:max_depth, :max_memory, :max_attributes])
+    opts = Keyword.validate!(opts, [:max_depth, :max_memory, :max_attributes, :timeout])
 
     LazyHTML.NIF.from_document(
       html,
       opts[:max_depth],
       opts[:max_memory],
-      opts[:max_attributes]
+      opts[:max_attributes],
+      opts[:timeout]
     )
   end
 
@@ -114,6 +119,10 @@ defmodule LazyHTML do
       element with thousands of attributes takes time quadratic in
       their number.
 
+    * `:timeout` - raises if parsing takes longer than this many
+      milliseconds. It's checked every 64 tokens, so set the other
+      limits too to keep the work for each token small.
+
   ## Examples
 
       iex> LazyHTML.from_fragment(~S|<a class="button">Click me</a>|)
@@ -137,13 +146,14 @@ defmodule LazyHTML do
   """
   @spec from_fragment(String.t(), keyword()) :: t()
   def from_fragment(html, opts \\ []) when is_binary(html) do
-    opts = Keyword.validate!(opts, [:max_depth, :max_memory, :max_attributes])
+    opts = Keyword.validate!(opts, [:max_depth, :max_memory, :max_attributes, :timeout])
 
     LazyHTML.NIF.from_fragment(
       html,
       opts[:max_depth],
       opts[:max_memory],
-      opts[:max_attributes]
+      opts[:max_attributes],
+      opts[:timeout]
     )
   end
 

@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <charconv>
+#include <chrono>
 #include <erl_nif.h>
 #include <fine.hpp>
 #include <functional>
@@ -181,19 +182,33 @@ template <typename T> bool more_than(T *attr, uint64_t max) {
 // also create many nodes, for example when reopening formatting elements, so
 // the memory limit bounds what the document takes. The tree builder compares
 // every attribute it adds to an element with the ones the element already
-// has, so the attribute limit bounds the work per attribute.
+// has, so the attribute limit bounds the work per attribute. The time limit
+// is checked every 64 tokens.
 class ParseLimits {
 public:
-  enum class Exceeded { none, depth, memory, attributes, merged_attributes };
+  enum class Exceeded {
+    none,
+    depth,
+    memory,
+    attributes,
+    merged_attributes,
+    timeout
+  };
 
   ParseLimits(lxb_html_document_t *document, std::optional<uint64_t> max_open,
               std::optional<uint64_t> max_memory,
-              std::optional<uint64_t> max_attributes)
+              std::optional<uint64_t> max_attributes,
+              std::optional<uint64_t> timeout)
       : parser(static_cast<lxb_html_parser_t *>(document->dom_document.parser)),
         callback(parser->tkz->callback_token_done),
         ctx(parser->tkz->callback_token_ctx), max_open(max_open),
         max_memory(max_memory), max_attributes(max_attributes),
         memory(&document->dom_document), initial_memory(memory.bytes()) {
+    if (timeout) {
+      deadline = std::chrono::steady_clock::now() +
+                 std::chrono::milliseconds(*timeout);
+    }
+
     lxb_html_tokenizer_callback_token_done_set(parser->tkz, check, this);
   }
 
@@ -211,6 +226,14 @@ private:
                                  lxb_html_token_t *token, void *ctx) {
     auto limits = static_cast<ParseLimits *>(ctx);
     auto merges_attributes = false;
+
+    // Reading the clock on every token adds about a fifth to the time
+    // tag-dense HTML takes to parse, so it's read every 64 tokens.
+    if (limits->deadline && ++limits->tokens % 64 == 0 &&
+        std::chrono::steady_clock::now() > *limits->deadline) {
+      limits->exceeded = Exceeded::timeout;
+      return NULL;
+    }
 
     // Doctype tokens keep their name and identifiers as attributes.
     if (limits->max_attributes && token->tag_id != LXB_TAG__EM_DOCTYPE) {
@@ -269,12 +292,15 @@ private:
   std::optional<uint64_t> max_attributes;
   DocumentMemory memory;
   uint64_t initial_memory;
+  std::optional<std::chrono::steady_clock::time_point> deadline;
+  uint64_t tokens = 0;
 };
 
 void throw_limit_exceeded(ParseLimits::Exceeded exceeded,
                           std::optional<uint64_t> max_depth,
                           std::optional<uint64_t> max_memory,
-                          std::optional<uint64_t> max_attributes) {
+                          std::optional<uint64_t> max_attributes,
+                          std::optional<uint64_t> timeout) {
   switch (exceeded) {
   case ParseLimits::Exceeded::none:
     return;
@@ -299,13 +325,19 @@ void throw_limit_exceeded(ParseLimits::Exceeded exceeded,
         "failed to parse html, repeated <html> or <body> tags give an element "
         "more attributes than :max_attributes (" +
         std::to_string(*max_attributes) + ")");
+
+  case ParseLimits::Exceeded::timeout:
+    throw std::runtime_error("failed to parse html, parsing took longer than "
+                             ":timeout (" +
+                             std::to_string(*timeout) + " ms)");
   }
 }
 
 ExLazyHTML from_document(ErlNifEnv *env, ErlNifBinary html,
                          std::optional<uint64_t> max_depth,
                          std::optional<uint64_t> max_memory,
-                         std::optional<uint64_t> max_attributes) {
+                         std::optional<uint64_t> max_attributes,
+                         std::optional<uint64_t> timeout) {
   auto document = lxb_html_document_create();
   if (document == NULL) {
     throw std::runtime_error("failed to create document");
@@ -319,9 +351,9 @@ ExLazyHTML from_document(ErlNifEnv *env, ErlNifBinary html,
   }
 
   auto limits = std::optional<ParseLimits>();
-  if (max_depth || max_memory || max_attributes) {
+  if (max_depth || max_memory || max_attributes || timeout) {
     // <html> is at depth 1.
-    limits.emplace(document, max_depth, max_memory, max_attributes);
+    limits.emplace(document, max_depth, max_memory, max_attributes, timeout);
   }
 
   status = lxb_html_document_parse_chunk(document, html.data, html.size);
@@ -331,7 +363,7 @@ ExLazyHTML from_document(ErlNifEnv *env, ErlNifBinary html,
 
   if (limits) {
     throw_limit_exceeded(limits->exceeded, max_depth, max_memory,
-                         max_attributes);
+                         max_attributes, timeout);
   }
 
   if (status != LXB_STATUS_OK) {
@@ -357,7 +389,8 @@ FINE_NIF(from_document, ERL_NIF_DIRTY_JOB_CPU_BOUND);
 ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html,
                          std::optional<uint64_t> max_depth,
                          std::optional<uint64_t> max_memory,
-                         std::optional<uint64_t> max_attributes) {
+                         std::optional<uint64_t> max_attributes,
+                         std::optional<uint64_t> timeout) {
   auto document = lxb_html_document_create();
   if (document == NULL) {
     throw std::runtime_error("failed to create document");
@@ -375,14 +408,14 @@ ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html,
   }
 
   auto limits = std::optional<ParseLimits>();
-  if (max_depth || max_memory || max_attributes) {
+  if (max_depth || max_memory || max_attributes || timeout) {
     // The stack of open elements always has the fragment's <html> root and we
     // do not count it towards the limit.
     auto max_open = std::optional<uint64_t>();
     if (max_depth) {
       max_open = *max_depth + 1;
     }
-    limits.emplace(document, max_open, max_memory, max_attributes);
+    limits.emplace(document, max_open, max_memory, max_attributes, timeout);
   }
 
   lxb_dom_node_t *parse_root = NULL;
@@ -395,7 +428,7 @@ ExLazyHTML from_fragment(ErlNifEnv *env, ErlNifBinary html,
 
   if (limits) {
     throw_limit_exceeded(limits->exceeded, max_depth, max_memory,
-                         max_attributes);
+                         max_attributes, timeout);
   }
 
   if (parse_root == NULL) {

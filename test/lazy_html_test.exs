@@ -97,6 +97,17 @@ defmodule LazyHTMLTest do
                    end
     end
 
+    test "with :timeout" do
+      html = "<div><span>Hello</span></div>"
+
+      assert LazyHTML.from_document(html, timeout: 10_000) |> LazyHTML.to_html() ==
+               "<html><head></head><body>#{html}</body></html>"
+
+      assert_raise RuntimeError, ~r/parsing took longer than :timeout \(1 ms\)/, fn ->
+        LazyHTML.from_document(String.duplicate("<div>", 20_000), timeout: 1)
+      end
+    end
+
     test "with :max_attributes" do
       html = ~S|<div id="a" class="b" title="c">Hello</div>|
 
@@ -311,9 +322,22 @@ defmodule LazyHTMLTest do
       end
     end
 
+    test "with :timeout" do
+      html = "<div><span>Hello</span></div>"
+      assert LazyHTML.from_fragment(html, timeout: 10_000) |> LazyHTML.to_html() == html
+
+      assert_raise RuntimeError, ~r/parsing took longer than :timeout \(1 ms\)/, fn ->
+        LazyHTML.from_fragment(String.duplicate("<div>", 20_000), timeout: 1)
+      end
+    end
+
+    test "raises on an invalid :timeout" do
+      assert_raise ArgumentError, fn -> LazyHTML.from_fragment("", timeout: -1) end
+    end
+
     test "with all limits" do
       html = ~S|<div class="a"><span>Hello</span></div>|
-      opts = [max_depth: 2, max_memory: 100_000, max_attributes: 1]
+      opts = [max_depth: 2, max_memory: 100_000, max_attributes: 1, timeout: 10_000]
 
       assert LazyHTML.from_fragment(html, opts) |> LazyHTML.to_html() == html
 
