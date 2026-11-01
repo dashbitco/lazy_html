@@ -478,6 +478,81 @@ defmodule LazyHTMLTest do
   end
 
   describe "from_tree/2" do
+    test "empty" do
+      assert LazyHTML.from_tree([]) |> LazyHTML.to_tree() == []
+    end
+
+    test "round-trips text, elements, and comments at the root and nested" do
+      nodes = [
+        "",
+        "Hello 🐈",
+        {:comment, ""},
+        {:comment, "comment"},
+        {"span", [{"id", "child"}], ["nested", {:comment, "nested comment"}]}
+      ]
+
+      for tree <- [nodes, [{"div", [{"class", "root"}], nodes}]] do
+        assert LazyHTML.from_tree(tree) |> LazyHTML.to_tree() == tree
+      end
+    end
+
+    test "rejects unsupported node shapes at the root and nested" do
+      nodes = [
+        nil,
+        true,
+        :text,
+        123,
+        1.0,
+        [],
+        ["text"],
+        %{},
+        <<1::1>>,
+        {},
+        {"div"},
+        {"div", [], [], :extra}
+      ]
+
+      for node <- nodes, tree <- [[node], [{"div", [], [node]}]] do
+        assert_raise ArgumentError, fn -> LazyHTML.from_tree(tree) end
+      end
+    end
+
+    test "rejects malformed element fields at the root and nested" do
+      nodes = [
+        {:div, [], []},
+        {"div", %{}, []},
+        {"div", ["id"], []},
+        {"div", [{"id"}], []},
+        {"div", [{"id", "value", :extra}], []},
+        {"div", [{:id, "value"}], []},
+        {"div", [{"id", 123}], []},
+        {"div", [{"id", "value"} | :tail], []},
+        {"div", [], "text"},
+        {"div", [], ["text" | :tail]},
+        {"div", [], [:invalid]},
+        {"div", [], [{"span", [], [:invalid]}]}
+      ]
+
+      for node <- nodes, tree <- [[node], [{"div", [], [node]}]] do
+        assert_raise ArgumentError, fn -> LazyHTML.from_tree(tree) end
+      end
+    end
+
+    test "rejects malformed comments at the root and nested" do
+      nodes = [
+        {:other, "text"},
+        {"comment", "text"},
+        {123, "text"},
+        {:comment, :text},
+        {:comment, ["text"]},
+        {:comment, <<1::1>>}
+      ]
+
+      for node <- nodes, tree <- [[node], [{"div", [], [node]}]] do
+        assert_raise ArgumentError, fn -> LazyHTML.from_tree(tree) end
+      end
+    end
+
     test "includes template children" do
       lazy_html =
         LazyHTML.from_tree([

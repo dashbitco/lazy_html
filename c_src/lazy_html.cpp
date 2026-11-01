@@ -857,8 +857,28 @@ void insert_children_from_tree(ErlNifEnv *env, lxb_html_document_t *document,
     auto current_parent = frame.parent;
     frame.index++;
 
-    auto decoded = fine::decode<std::variant<ExText, ExElement, ExComment>>(
-        env, current_item);
+    // The node types have distinct outer shapes, so select the decoder
+    // without trying (and throwing for) the other variant alternatives.
+    auto decoded = [&]() -> std::variant<ExText, ExElement, ExComment> {
+      if (enif_is_binary(env, current_item)) {
+        return fine::decode<ExText>(env, current_item);
+      }
+
+      int arity;
+      const ERL_NIF_TERM *items;
+      if (enif_get_tuple(env, current_item, &arity, &items)) {
+        if (arity == 3) {
+          return fine::decode<ExElement>(env, current_item);
+        }
+        if (arity == 2) {
+          return fine::decode<ExComment>(env, current_item);
+        }
+      }
+
+      throw std::invalid_argument(
+          "invalid tree node, expected a text binary, element tuple, or "
+          "comment tuple");
+    }();
 
     lxb_dom_node_t *node = nullptr;
 
