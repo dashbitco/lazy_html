@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.1.14](https://github.com/dashbitco/lazy_html/tree/v0.1.14) (2026-11-03)
+
+### Added
+
+- Added `:max_depth`, `:max_memory`, `:max_attributes` and `:timeout` options to `LazyHTML.from_document/2` and `LazyHTML.from_fragment/2` ([#43](https://github.com/dashbitco/lazy_html/pull/43), [#45](https://github.com/dashbitco/lazy_html/pull/45))
+
 ## [v0.1.13](https://github.com/dashbitco/lazy_html/tree/v0.1.13) (2026-09-25)
 
 ### Added
