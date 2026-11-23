@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.1.15](https://github.com/dashbitco/lazy_html/tree/v0.1.15) (2026-11-24)
+
+### Fixed
+
+- Fixed `LazyHTML.to_tree/2` to copy text and comment binaries, so the result does not keep the whole document in memory ([#47](https://github.com/dashbitco/lazy_html/pull/47))
+
 ## [v0.1.14](https://github.com/dashbitco/lazy_html/tree/v0.1.14) (2026-11-03)
 
 ### Added
