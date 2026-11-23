@@ -84,10 +84,9 @@ struct ExLazyHTML {
 
 ERL_NIF_TERM make_new_binary(ErlNifEnv *env, size_t size,
                              const unsigned char *data) {
-  ERL_NIF_TERM term;
-  auto term_data = enif_make_new_binary(env, size, &term);
-  memcpy(term_data, data, size);
-  return term;
+  // Lexbor can return a null pointer for empty data.
+  auto bytes = size == 0 ? "" : reinterpret_cast<const char *>(data);
+  return fine::make_new_binary(env, bytes, size);
 }
 
 // Tracks how many bytes a lexbor memory pool has handed out. The pool
@@ -699,9 +698,9 @@ ERL_NIF_TERM attributes_to_term(ErlNifEnv *env, lxb_dom_element_t *element,
   return fine::encode(env, attributes);
 }
 
-void node_to_tree(ErlNifEnv *env, fine::ResourcePtr<LazyHTML> &resource,
-                  lxb_dom_node_t *node, std::vector<ERL_NIF_TERM> &tree,
-                  bool sort_attributes, bool skip_whitespace_nodes) {
+void node_to_tree(ErlNifEnv *env, lxb_dom_node_t *node,
+                  std::vector<ERL_NIF_TERM> &tree, bool sort_attributes,
+                  bool skip_whitespace_nodes) {
   // We use an explicit stack instead of recursion to avoid stack
   // overflow on deeply nested trees.
   struct StackFrame {
@@ -724,17 +723,15 @@ void node_to_tree(ErlNifEnv *env, fine::ResourcePtr<LazyHTML> &resource,
 
       if (!(whitespace_size == character_data->data.length &&
             skip_whitespace_nodes)) {
-        auto term = fine::make_resource_binary(
-            env, resource, reinterpret_cast<char *>(character_data->data.data),
-            character_data->data.length);
+        auto term = make_new_binary(env, character_data->data.length,
+                                    character_data->data.data);
         auto &target = stack.empty() ? tree : stack.back().children;
         target.push_back(term);
       }
     } else if (current->type == LXB_DOM_NODE_TYPE_COMMENT) {
       auto character_data = lxb_dom_interface_character_data(current);
-      auto term = fine::make_resource_binary(
-          env, resource, reinterpret_cast<char *>(character_data->data.data),
-          character_data->data.length);
+      auto term = make_new_binary(env, character_data->data.length,
+                                  character_data->data.data);
       auto &target = stack.empty() ? tree : stack.back().children;
       target.push_back(
           enif_make_tuple2(env, fine::encode(env, atoms::comment), term));
@@ -798,8 +795,7 @@ fine::Term to_tree(ErlNifEnv *env, ExLazyHTML ex_lazy_html,
   auto tree = std::vector<ERL_NIF_TERM>();
 
   for (auto node : ex_lazy_html.resource->nodes) {
-    node_to_tree(env, ex_lazy_html.resource, node, tree, sort_attributes,
-                 skip_whitespace_nodes);
+    node_to_tree(env, node, tree, sort_attributes, skip_whitespace_nodes);
   }
 
   return enif_make_list_from_array(env, tree.data(),
