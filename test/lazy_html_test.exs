@@ -520,6 +520,19 @@ defmodule LazyHTMLTest do
       end
     end
 
+    test "raises when a selector inside :has() is invalid" do
+      fragment = LazyHTML.from_fragment("<div></div>")
+      selector = "div:has(b[border=1])"
+
+      assert_raise ArgumentError, "got invalid css selector: #{selector}", fn ->
+        LazyHTML.query(fragment, selector)
+      end
+
+      assert_raise ArgumentError, "got invalid css selector: #{selector}", fn ->
+        LazyHTML.filter(fragment, selector)
+      end
+    end
+
     test "does not include duplicated elements in the result set" do
       fragment =
         LazyHTML.from_fragment(~S"""

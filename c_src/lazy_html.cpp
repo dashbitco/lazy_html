@@ -956,7 +956,10 @@ lxb_css_selector_list_t *parse_css_selector(lxb_css_parser_t *parser,
                                             ErlNifBinary css_selector) {
   auto css_selector_list =
       lxb_css_selectors_parse(parser, css_selector.data, css_selector.size);
-  if (parser->status == LXB_STATUS_ERROR_UNEXPECTED_DATA) {
+  // When Lexbor discards an invalid selector inside :has(), :is(), or :where(),
+  // it resets the status to OK. If no selectors remain, it returns a null list.
+  if (parser->status == LXB_STATUS_ERROR_UNEXPECTED_DATA ||
+      (parser->status == LXB_STATUS_OK && css_selector_list == nullptr)) {
     throw std::invalid_argument(
         "got invalid css selector: " +
         std::string(reinterpret_cast<char *>(css_selector.data),
