@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [v0.1.16](https://github.com/dashbitco/lazy_html/tree/v0.1.16) (2026-11-25)
+
+### Fixed
+
+- Fixed a crash in `LazyHTML.query/2` and `LazyHTML.filter/2` when parsing invalid CSS selectors
+
 ## [v0.1.15](https://github.com/dashbitco/lazy_html/tree/v0.1.15) (2026-11-24)
 
 ### Fixed
